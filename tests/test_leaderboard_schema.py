@@ -218,6 +218,29 @@ def test_empty_predictions_path_rejected() -> None:
     assert any("non-empty path" in e for e in errors)
 
 
+def test_scored_at_must_include_time_component() -> None:
+    """Bare date `2026-04-30` is parseable by `fromisoformat` but is
+    too coarse to mark a scoring run."""
+    bad = {
+        "task": "next-event",
+        "dataset": "x",
+        "metric": "m",
+        "scored_with": "z",
+        "split": {"kind": "case-chrono"},
+        "entries": [
+            {
+                "model": "m",
+                "version": "1",
+                "predictions_path": "p",
+                "score": {},
+                "scored_at": "2026-04-30",
+            }
+        ],
+    }
+    errors = validate_board(bad)
+    assert any("time component" in e for e in errors)
+
+
 def test_scored_at_must_be_iso_8601() -> None:
     bad = {
         "task": "next-event",

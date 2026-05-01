@@ -142,7 +142,10 @@ def _runtime_safe(fn):
         try:
             return fn(*args, **kwargs)
         except (KeyError, ValueError, TypeError, OSError) as exc:
-            click.echo(str(exc), err=True)
+            # Prefix with the exception type so a swallowed
+            # implementation bug (vs. an expected data error) is at
+            # least labelled in the user-facing output.
+            click.echo(f"{type(exc).__name__}: {exc}", err=True)
             sys.exit(2)
 
     return _wrapped

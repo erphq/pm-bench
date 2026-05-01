@@ -60,6 +60,17 @@ pm-bench fetch bpi2020 --pin
 
 ## Recently shipped
 
+- **Round-12 cleanup** (`round12-fixes` branch).
+  - **R58**: ISO timestamp validator accepted bare dates
+    (`"2026-04-30"` → parsed by `fromisoformat`, but no time
+    component → too coarse to mark a scoring run). Now requires
+    `T` or space.
+  - **R59**: `_runtime_safe` exited with just the bare exception
+    message. A swallowed implementation bug (KeyError from a typo)
+    looked identical to a data error. Now prefixed with the
+    exception type so the user can tell them apart.
+  - 2 new tests + 1 new contract test for the empty-board markdown
+    path. 229 total, ruff clean.
 - **Round-11 cleanup** (`round11-fixes` branch). Eighth audit pass:
   - **R47**: `IsADirectoryError` / `PermissionError` (and other
     `OSError` subclasses) leaked as raw tracebacks past the

@@ -169,7 +169,9 @@ def _validate_entry(entry: object, idx: int) -> Iterable[str]:
             )
         else:
             # Validate as ISO 8601 — `datetime.fromisoformat` accepts
-            # the full grammar in 3.11+ including trailing Z.
+            # the full grammar in 3.11+ including trailing Z. We also
+            # require a time component (`T` or space): a bare date
+            # like "2026-04-30" is too coarse to mark a scoring run.
             from datetime import datetime as _dt
 
             try:
@@ -179,6 +181,12 @@ def _validate_entry(entry: object, idx: int) -> Iterable[str]:
                     f"{base}.scored_at",
                     f"not a valid ISO 8601 timestamp: {sa!r}",
                 )
+            else:
+                if "T" not in sa and " " not in sa:
+                    yield _err_path(
+                        f"{base}.scored_at",
+                        f"must include a time component (T or space): {sa!r}",
+                    )
 
     if "model" in entry:
         model = entry["model"]

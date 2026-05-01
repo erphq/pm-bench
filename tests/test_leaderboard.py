@@ -70,6 +70,23 @@ def test_verify_detects_drift(tmp_path) -> None:
     assert any("top1 drift" in d for d in drifts)
 
 
+def test_board_to_markdown_handles_zero_entries() -> None:
+    """An empty board renders header + table header but no data rows
+    (and doesn't crash on `max(... default=10)`)."""
+    from pm_bench.leaderboard import Board, board_to_markdown
+
+    b = Board(task="next-event", dataset="x", metric="m", entries=[], raw={})
+    md = board_to_markdown(b)
+    assert "next-event" in md
+    assert "| Model |" in md
+    # No data rows beyond header + separator
+    body_lines = [
+        line for line in md.splitlines()
+        if line.startswith("|") and not set(line.strip()) <= set("|-:") and "Model" not in line
+    ]
+    assert body_lines == []
+
+
 def test_verify_catches_extra_score_keys(tmp_path) -> None:
     """A board claiming task=outcome but with `top1` in its recorded
     score (logically incoherent) used to pass verify silently because
