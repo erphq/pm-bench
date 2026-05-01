@@ -6,8 +6,12 @@ Be the default benchmark for new process-mining methods. Within 18 months,
 
 ## v0 success criteria
 - 7 datasets fetchable + hash-verified
-- 5 tasks with fixed scoring scripts
-- `gnn` runs end-to-end as the reference baseline
+- 5 tasks with fixed scoring scripts (next-event ✅; remaining-time, outcome,
+  conformance, bottleneck pending)
+- `gnn` runs end-to-end as the reference baseline (Markov reference ✅;
+  `gnn` integration pending v0.1 dataset machinery)
+- End-to-end loop runs on `synthetic-toy` ✅ — split → prefixes →
+  predict → score, covered by `tests/test_e2e.py`
 
 ## v1 success criteria
 - ≥3 external groups submit to the leaderboard

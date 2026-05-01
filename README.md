@@ -105,13 +105,23 @@ and cache locally. Datasets carry their original licenses (linked in
 ```bash
 pip install pm-bench
 
-pm-bench list                                       # available datasets
-pm-bench fetch bpi2020                              # download + verify hash
-pm-bench split bpi2020 --task next-event > split.json
+pm-bench list                                                # available datasets
+pm-bench split synthetic-toy > split.json                    # train/val/test case ids
+pm-bench prefixes synthetic-toy \
+  --split split.json --out prefixes.csv                      # prediction targets
+pm-bench predict synthetic-toy \
+  --split split.json --prefixes prefixes.csv \
+  --out predictions.csv --baseline markov                    # reference baseline
 pm-bench score predictions.csv \
-  --task next-event --dataset bpi2020 --split split.json
-pm-bench leaderboard --task next-event              # current standings
+  --prefixes prefixes.csv --task next-event                  # top-1 / top-3
 ```
+
+The full loop (`split → prefixes → predict → score`) runs end-to-end on
+`synthetic-toy` today; it's covered by `tests/test_e2e.py` and locks
+the file formats the leaderboard depends on. BPI / Sepsis / Helpdesk
+will use the same commands once v0.1's fetch+cache machinery lands —
+4TU's interactive TOS makes the download itself a one-time manual
+step, but everything downstream is automated.
 
 The full pipeline:
 
@@ -191,11 +201,14 @@ honesty. The point of the benchmark is to make the comparison real.
 ## ✦ Roadmap
 
 - [x] v0.0 — scaffold, dataset registry, split design
+- [x] v0.0.1 — end-to-end loop on `synthetic-toy`: split → prefixes →
+      predict (Markov) → score, with a smoke test that locks the file
+      formats
 - [ ] v0.1 — fetch + cache + hash for all 7 datasets
 - [ ] v0.2 — splits: next-event, remaining-time
 - [ ] v0.3 — scoring scripts for all 5 tasks
 - [ ] v0.4 — leaderboard CI + landing page
-- [ ] v0.5 — baselines: `gnn`, transformer, LSTM, Markov
+- [ ] v0.5 — baselines: `gnn`, transformer, LSTM, Markov ✅ (Markov shipped)
 - [ ] v1.0 — first external submissions; cited in ≥1 paper
 
 ## ✦ Topics
