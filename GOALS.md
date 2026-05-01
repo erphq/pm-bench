@@ -18,8 +18,10 @@ months, ≥10 external papers report `pm-bench` numbers in their abstract.
   staleness is a CI failure. **Done.**
 - [🟡] **7 datasets fetchable + hash-verified** — fetch/hash/cache
   machinery shipped (`pm-bench fetch <name> [--pin]`, atomic +
-  concurrent-safe download, sha256 verification); per-dataset hash
-  pins pending the one-time TOS-gated 4TU/Mendeley downloads. **One
+  concurrent-safe download, sha256 verification); **stdlib XES
+  parser now in-tree**, so registry-named datasets auto-parse via
+  `_load_events` once their hash is pinned. Per-dataset hash pins
+  pending the one-time TOS-gated 4TU/Mendeley downloads. **One
   human step away.**
 - [ ] **`gnn` runs end-to-end as the reference baseline.** Markov is
   the in-tree reference today; gnn integration unblocks the moment a

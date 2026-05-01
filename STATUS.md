@@ -1,17 +1,21 @@
 # Status
 
-_Last updated: 2026-05-01 — full audit-cleanup stack landed on `main`._
+_Last updated: 2026-05-01 — XES parser + dispatch wiring shipped._
 
 ## Where we are
 
-**v0.4 is live on `main`.** All five v0 tasks (next-event, remaining-
-time, outcome, bottleneck, conformance) ship with reference baselines
-and floor baselines on `synthetic-toy`. The leaderboard auto-verifies
-in CI; STANDINGS.md regenerates from the JSON; schema validation,
-drift detection, atomic writes, and ~60 audit-driven robustness fixes
-are all in place.
+**v0.4 live, v0.5 partially unblocked.** All five v0 tasks ship with
+reference + floor baselines on `synthetic-toy`. **An XES parser is
+now in-tree** (stdlib only — no pm4py dep) so the moment a real BPI
+dataset gets pinned, the only remaining work is a one-line dispatch
+in `_events_and_test_cases` per dataset.
 
-**229 tests** pass, ruff clean, all 5 leaderboard boards verify.
+`_load_events` now handles 4 input shapes: bundled `synthetic-toy`,
+`.csv`/`.csv.gz` paths, **`.xes`/`.xes.gz` paths**, and
+registry-named datasets (auto-fetches via the cache + sha256
+machinery, parses by registry `format`).
+
+**240 tests** pass, ruff clean, all 5 leaderboard boards verify.
 
 ```bash
 $ pm-bench leaderboard --all --verify
@@ -90,6 +94,22 @@ See "Recently shipped" below for the per-round breakdown.
 
 ## Recently shipped
 
+- **XES parser + dispatch wiring** (`xes-parser` branch).
+  - `pm_bench/xes.py:read_xes_log` — stdlib-only XES reader using
+    `xml.etree.ElementTree.iterparse` for bounded memory on 100MB+
+    logs. Namespace-tolerant, tz-aware → UTC, surfaces malformed
+    XML as `ValueError` (not `ExpatError`).
+  - `_load_events` now dispatches XES paths and registry-named
+    datasets (CSV or XES per `registry.yml` `format`). The fetch +
+    cache + sha256 machinery auto-runs for registry names —
+    submitters of a freshly-pinned dataset just call `pm-bench
+    split bpi2020`.
+  - `looks_like_path` recognizes `.xes` / `.xes.gz`.
+  - 11 new tests; 240 total. Zero new dependencies.
+  - **What's left for the first BPI pin**: download the .xes.gz from
+    4TU (interactive TOS), `pm-bench fetch <name> --pin`, PR the
+    sha256 + a per-dataset branch in `_events_and_test_cases`. The
+    parser is ready.
 - **Round-12 cleanup** (`round12-fixes` branch).
   - **R58**: ISO timestamp validator accepted bare dates
     (`"2026-04-30"` → parsed by `fromisoformat`, but no time

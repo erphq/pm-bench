@@ -83,11 +83,23 @@ def _load_events(name: str) -> list:
       `synthetic-toy`.
     - any path that looks like a CSV (`.csv` / `.csv.gz` / contains `/`)
       → loaded via `pm_bench.io.read_csv_log`
-    - any other registry name → not yet wired (v0.1 fetch machinery
-      handles the cache; XES parsing lands when a dataset is pinned)
+    - any path ending in `.xes` / `.xes.gz` → loaded via
+      `pm_bench.xes.read_xes_log`
+    - a registry-named dataset whose hash is pinned and cached locally
+      → fetched + parsed (CSV or XES per the registry `format`).
     """
     from pm_bench.io import looks_like_path, read_csv_log
+    from pm_bench.xes import read_xes_log
 
+    if str(name).endswith((".xes", ".xes.gz")) and looks_like_path(name):
+        try:
+            return read_xes_log(name)
+        except FileNotFoundError:
+            click.echo(f"no such file: {name}", err=True)
+            sys.exit(1)
+        except ValueError as exc:
+            click.echo(f"{exc}", err=True)
+            sys.exit(2)
     if looks_like_path(name):
         try:
             return read_csv_log(name)
@@ -107,13 +119,47 @@ def _load_events(name: str) -> list:
             click.echo(f"bad seed in {name!r}: must be an integer", err=True)
             sys.exit(1)
         return list(_synth.synthetic_log(seed=seed))
-    click.echo(
-        f"unknown dataset: {name}. Use 'synthetic-toy', 'synthetic-toy@<seed>', "
-        "a CSV path, or wait for the v0.1 fetch machinery to wire your "
-        "registry entry.",
-        err=True,
-    )
-    sys.exit(1)
+
+    # Registry-named dataset: try fetching the cached file. The fetch
+    # machinery is responsible for verifying the sha256 pin (or
+    # raising ManualFetchRequired if no download_url is set yet).
+    try:
+        from pm_bench.fetch import (
+            FetchError,
+            ManualFetchRequired,
+            ensure_cached,
+        )
+        from pm_bench.registry import get_dataset
+
+        try:
+            d = get_dataset(name)
+        except KeyError:
+            click.echo(
+                f"unknown dataset: {name}. Use 'synthetic-toy', "
+                "'synthetic-toy@<seed>', a CSV/XES path, or a registry name.",
+                err=True,
+            )
+            sys.exit(1)
+        try:
+            r = ensure_cached(d)
+        except ManualFetchRequired as exc:
+            click.echo(str(exc), err=True)
+            sys.exit(2)
+        except FetchError as exc:
+            click.echo(f"{name}: {exc}", err=True)
+            sys.exit(2)
+        if d.format == "xes":
+            return read_xes_log(r.path)
+        if d.format == "csv":
+            return read_csv_log(r.path)
+        click.echo(
+            f"{name}: registry format {d.format!r} not supported by _load_events",
+            err=True,
+        )
+        sys.exit(2)
+    except (KeyError, ValueError) as exc:
+        click.echo(f"{name}: {exc}", err=True)
+        sys.exit(2)
 
 
 def _outcome_rule(name: str):

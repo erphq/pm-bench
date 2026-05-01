@@ -28,7 +28,7 @@ def looks_like_path(name: str) -> bool:
     to the registry.
     """
     return any(c in name for c in ("/", "\\")) or name.endswith(
-        (".csv", ".csv.gz", ".tsv", ".tsv.gz")
+        (".csv", ".csv.gz", ".tsv", ".tsv.gz", ".xes", ".xes.gz")
     )
 
 

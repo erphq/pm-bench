@@ -8,7 +8,7 @@
 
 [![license](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 [![status](https://img.shields.io/badge/status-v0.4-green.svg)](#roadmap)
-[![tests](https://img.shields.io/badge/tests-229%20passing-green.svg)](./tests)
+[![tests](https://img.shields.io/badge/tests-240%20passing-green.svg)](./tests)
 [![python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](#install)
 
 </div>
@@ -145,6 +145,16 @@ CSVs need columns mappable to `case_id`, `activity`, `timestamp` -
 both pm-bench-native names and PM4Py XES-derived names
 (`case:concept:name`, `concept:name`, `time:timestamp`) work.
 `.csv.gz` is auto-detected.
+
+**XES (`.xes` / `.xes.gz`) also Just Works.** A stdlib-only XES parser
+(no pm4py dep) handles every BPI Challenge log shape. Same end-to-end
+pipeline:
+
+```bash
+pm-bench split path/to/bpi2020.xes.gz > split.json
+pm-bench prefixes path/to/bpi2020.xes.gz --split split.json --out p.csv
+# ... etc
+```
 
 For the public datasets, the fetch + hash machinery is in place:
 
