@@ -126,6 +126,87 @@ def _outcome_rule(name: str):
     )
 
 
+def _runtime_safe(fn):
+    """Wrap a CLI command body to catch the standard data-error
+    exceptions and exit 2 with a clean message.
+
+    Used for verbs that read user-supplied files (CSV, JSON) where
+    KeyError / ValueError / TypeError / OSError (FileNotFoundError,
+    IsADirectoryError, PermissionError, NotADirectoryError) can come
+    from any reader without wanting to propagate as raw tracebacks.
+    """
+    import functools
+
+    @functools.wraps(fn)
+    def _wrapped(*args, **kwargs):
+        try:
+            return fn(*args, **kwargs)
+        except (KeyError, ValueError, TypeError, OSError) as exc:
+            # Prefix with the exception type so a swallowed
+            # implementation bug (vs. an expected data error) is at
+            # least labelled in the user-facing output.
+            click.echo(f"{type(exc).__name__}: {exc}", err=True)
+            sys.exit(2)
+
+    return _wrapped
+
+
+def _check_unique_pred_keys(rows: list, key_fn) -> None:
+    """Raise if any two prediction rows share the same join key.
+
+    Names the offending key so the user can find it in their CSV. The
+    leaderboard rescore path already does this; the score CLI used to
+    raise a key-less message.
+    """
+    seen: dict = {}
+    for r in rows:
+        k = key_fn(r)
+        if k in seen:
+            raise ValueError(f"predictions has duplicate key {k}")
+        seen[k] = r
+
+
+_SPLIT_REQUIRED_KEYS = ("train", "val", "test")
+
+
+def _load_split(path: str) -> dict:
+    """Load a split JSON, validate shape, exit 2 with a clear message on bad input.
+
+    Centralizing the read here means every command that accepts `--split`
+    fails the same way on the same shapes — no one path traceback'ing
+    while another exits cleanly.
+    """
+    try:
+        with open(path, encoding="utf-8-sig") as f:
+            data = json.load(f)
+    except json.JSONDecodeError as exc:
+        click.echo(f"{path}: not valid JSON ({exc})", err=True)
+        sys.exit(2)
+    if not isinstance(data, dict):
+        click.echo(f"{path}: split must be a JSON object", err=True)
+        sys.exit(2)
+    missing = [k for k in _SPLIT_REQUIRED_KEYS if k not in data]
+    if missing:
+        click.echo(
+            f"{path}: split is missing required key(s) {missing}",
+            err=True,
+        )
+        sys.exit(2)
+    # Each partition must be a list of case_ids. Without this check, a
+    # split with `"train": "c1"` (string) would silently iterate as
+    # individual characters when fed to set(), producing surprising
+    # downstream behaviour.
+    for k in _SPLIT_REQUIRED_KEYS:
+        if not isinstance(data[k], list):
+            click.echo(
+                f"{path}: split.{k} must be a JSON array, got "
+                f"{type(data[k]).__name__}",
+                err=True,
+            )
+            sys.exit(2)
+    return data
+
+
 @click.group()
 @click.version_option()
 def main() -> None:
@@ -144,8 +225,12 @@ def cmd_list() -> None:
 @click.argument("name")
 def info(name: str) -> None:
     """Show details for a dataset."""
+    # `info synthetic-toy@99` should resolve to the base entry — every
+    # other verb accepts the @<seed> suffix and this one was the
+    # outlier. Strip the suffix before the registry lookup.
+    lookup_name = name.split("@", 1)[0] if "@" in name else name
     try:
-        d = get_dataset(name)
+        d = get_dataset(lookup_name)
     except KeyError:
         click.echo(f"unknown dataset: {name}", err=True)
         sys.exit(1)
@@ -181,6 +266,13 @@ def fetch(name: str, pin: bool) -> None:
     Auto-downloads when `download_url` is set; otherwise prints
     instructions for the manual TOS-gated download path (4TU / Mendeley).
     """
+    # synthetic-toy@<seed> is a variant of synthetic-toy — same "generated
+    # on demand, no fetch needed" semantics. Other commands accept the
+    # @<seed> suffix; we match here for consistency.
+    if name.startswith("synthetic-toy@") or name == "synthetic-toy":
+        click.echo(f"{name}: generated on demand, no fetch needed")
+        return
+
     try:
         d = get_dataset(name)
     except KeyError:
@@ -268,18 +360,20 @@ def stats(name: str, top_n: int) -> None:
 
 @main.command()
 @click.argument("name")
-@click.option("--task", default="next-event", show_default=True)
-def split(name: str, task: str) -> None:
+def split(name: str) -> None:
     """Produce a train/val/test split for a dataset.
 
-    v0 supports `synthetic-toy` only; other datasets require manual fetch.
+    The split is task-agnostic — every task (next-event, remaining-time,
+    outcome, bottleneck, conformance) shares the same case-level
+    chronological partition, which is the whole point of pm-bench. So
+    this command takes no `--task`; downstream commands (`prefixes`,
+    `predict`, `discover`) decide the task.
     """
     events = _load_events(name)
     s = case_chrono_split(events)
     click.echo(
         json.dumps(
             {
-                "task": task,
                 "dataset": name,
                 "sizes": {"train": len(s.train), "val": len(s.val), "test": len(s.test)},
                 "train": s.train,
@@ -322,6 +416,7 @@ def split(name: str, task: str) -> None:
     default="next-event",
     show_default=True,
 )
+@_runtime_safe
 def prefixes(name: str, split_path: str, out_path: str, partition: str, task: str) -> None:
     """Emit prediction targets for a partition.
 
@@ -330,8 +425,7 @@ def prefixes(name: str, split_path: str, out_path: str, partition: str, task: st
     The (case_id, prefix_idx) keys join across the two truth files.
     """
     events = _load_events(name)
-    with open(split_path) as f:
-        split_data = json.load(f)
+    split_data = _load_split(split_path)
     case_ids = split_data[partition]
     if task == "next-event":
         n = write_prefixes_csv(extract_prefixes(events, case_ids), out_path)
@@ -393,6 +487,7 @@ def prefixes(name: str, split_path: str, out_path: str, partition: str, task: st
     default="next-event",
     show_default=True,
 )
+@_runtime_safe
 def predict(
     name: str,
     split_path: str,
@@ -403,8 +498,7 @@ def predict(
 ) -> None:
     """Run a reference baseline and emit predictions.csv."""
     events = _load_events(name)
-    with open(split_path) as f:
-        split_data = json.load(f)
+    split_data = _load_split(split_path)
 
     if task == "next-event":
         if baseline not in ("markov", "uniform"):
@@ -480,6 +574,7 @@ def predict(
     show_default=True,
     help="dfg → DFG from training cases; empty → no transitions (absolute floor).",
 )
+@_runtime_safe
 def discover(name: str, split_path: str, out_path: str, baseline: str) -> None:
     """Discover a process model from training cases.
 
@@ -488,14 +583,12 @@ def discover(name: str, split_path: str, out_path: str, baseline: str) -> None:
     (the absolute conformance floor - fitness 0, F-score 0).
     """
     events = _load_events(name)
-    with open(split_path) as f:
-        split_data = json.load(f)
+    split_data = _load_split(split_path)
     if baseline == "dfg":
         dfg = extract_dfg(events, split_data["train"])
-    elif baseline == "empty":
-        dfg = set()
     else:
-        raise click.UsageError(f"unknown discoverer: {baseline}")
+        # `empty`. Click's Choice rejects anything else upstream.
+        dfg = set()
     n = write_model_json(dfg, out_path)
     click.echo(f"wrote model with {n} transitions to {out_path} (baseline={baseline})")
 
@@ -539,6 +632,24 @@ def score(
 ) -> None:
     """Score predictions against the truth file (or, for conformance, against
     the test-partition DFG of a named dataset)."""
+    try:
+        _score_dispatch(predictions_path, prefixes_path, dataset_name, split_path, task)
+    except (KeyError, ValueError) as exc:
+        # KeyError → predictions CSV is missing a required column.
+        # ValueError → score function rejected the inputs (length
+        # mismatch, empty truth, malformed conformance JSON, etc.).
+        # In either case it's a clean runtime error, exit 2.
+        click.echo(str(exc), err=True)
+        sys.exit(2)
+
+
+def _score_dispatch(
+    predictions_path: str,
+    prefixes_path: str | None,
+    dataset_name: str | None,
+    split_path: str | None,
+    task: str,
+) -> None:
     if task == "conformance":
         if not dataset_name or not split_path:
             click.echo(
@@ -548,14 +659,11 @@ def score(
             )
             sys.exit(1)
         events = _load_events(dataset_name)
-        with open(split_path) as f:
-            split_data = json.load(f)
+        split_data = _load_split(split_path)
         truth_dfg = extract_dfg(events, split_data["test"])
-        try:
-            model_dfg = read_model_json(predictions_path)
-        except ValueError as exc:
-            click.echo(str(exc), err=True)
-            sys.exit(2)
+        # read_model_json may ValueError on bad shape; the outer score()
+        # try/except (added in the audit cleanup) catches it → exit 2.
+        model_dfg = read_model_json(predictions_path)
         cs = score_conformance(model_dfg, truth_dfg)
         click.echo(
             json.dumps(
@@ -579,6 +687,7 @@ def score(
     if task == "next-event":
         truth_rows = read_prefixes_csv(prefixes_path)
         pred_rows = read_predictions_csv(predictions_path)
+        _check_unique_pred_keys(pred_rows, lambda p: (p.case_id, p.prefix_idx))
         pred_lookup = {(p.case_id, p.prefix_idx): p.ranked for p in pred_rows}
         missing = [
             (t.case_id, t.prefix_idx)
@@ -606,6 +715,7 @@ def score(
     if task == "remaining-time":
         truth_time = read_time_targets_csv(prefixes_path)
         pred_time = read_time_predictions_csv(predictions_path)
+        _check_unique_pred_keys(pred_time, lambda p: (p.case_id, p.prefix_idx))
         pred_t_lookup = {(p.case_id, p.prefix_idx): p.predicted_days for p in pred_time}
         missing = [
             (t.case_id, t.prefix_idx)
@@ -632,6 +742,7 @@ def score(
     if task == "outcome":
         truth_o = read_outcome_targets_csv(prefixes_path)
         pred_o = read_outcome_predictions_csv(predictions_path)
+        _check_unique_pred_keys(pred_o, lambda p: (p.case_id, p.prefix_idx))
         pred_o_lookup = {(p.case_id, p.prefix_idx): p.score for p in pred_o}
         missing = [
             (t.case_id, t.prefix_idx)
@@ -658,6 +769,7 @@ def score(
     # bottleneck
     truth_b = read_bottleneck_targets_csv(prefixes_path)
     pred_b = read_bottleneck_predictions_csv(predictions_path)
+    _check_unique_pred_keys(pred_b, lambda p: (p.activity_a, p.activity_b))
     truth_dict = {(t.activity_a, t.activity_b): t.mean_wait_seconds for t in truth_b}
     pred_dict = {(p.activity_a, p.activity_b): p.predicted_wait_seconds for p in pred_b}
     bs = score_bottleneck(pred_dict, truth_dict, k=10)
@@ -719,9 +831,6 @@ def leaderboard(
     the lever CI pulls to verify the full repo in one go.
     """
     if do_all:
-        if do_markdown:
-            click.echo(all_standings_markdown(repo_root=repo_root), nl=False)
-            return
         from pathlib import Path
 
         root = Path(repo_root) / "leaderboard"
@@ -729,21 +838,54 @@ def leaderboard(
         if not files:
             click.echo(f"no leaderboard files under {root}", err=True)
             sys.exit(1)
-        any_drift = False
+        # If --markdown is set we still honour --verify: the user may want
+        # both the rendered table AND a hard failure on drift. Verify runs
+        # first so a drift exit happens before any markdown is printed.
+        if do_verify:
+            any_drift = False
+            for f in files:
+                try:
+                    board = load_board(f)
+                except (json.JSONDecodeError, KeyError, ValueError, TypeError) as exc:
+                    click.echo(f"{f.relative_to(repo_root)}: malformed - {exc}", err=True)
+                    any_drift = True
+                    continue
+                try:
+                    drifts = verify(board, repo_root=repo_root)
+                except OSError as exc:
+                    click.echo(
+                        f"{f.relative_to(repo_root)}: predictions not readable "
+                        f"({exc.filename or exc})",
+                        err=True,
+                    )
+                    any_drift = True
+                    continue
+                if not do_markdown:
+                    tag = "OK" if not drifts else f"DRIFT ({len(drifts)})"
+                    click.echo(
+                        f"{board.task}/{board.dataset}: {tag} - {len(board.entries)} entry(ies)"
+                    )
+                for d in drifts:
+                    click.echo(f"  {d}", err=True)
+                    any_drift = True
+            if any_drift:
+                sys.exit(2)
+            if do_markdown:
+                click.echo(all_standings_markdown(repo_root=repo_root), nl=False)
+            return
+        if do_markdown:
+            click.echo(all_standings_markdown(repo_root=repo_root), nl=False)
+            return
         for f in files:
             try:
                 board = load_board(f)
-            except (KeyError, ValueError) as exc:
+            except (json.JSONDecodeError, KeyError, ValueError, TypeError) as exc:
                 click.echo(f"{f.relative_to(repo_root)}: malformed - {exc}", err=True)
-                any_drift = True
                 continue
-            drifts = verify(board, repo_root=repo_root) if do_verify else []
-            tag = "OK" if not drifts else f"DRIFT ({len(drifts)})"
-            click.echo(f"{board.task}/{board.dataset}: {tag} - {len(board.entries)} entry(ies)")
-            for d in drifts:
-                click.echo(f"  {d}", err=True)
-                any_drift = True
-        sys.exit(2 if any_drift else 0)
+            click.echo(
+                f"{board.task}/{board.dataset}: OK - {len(board.entries)} entry(ies)"
+            )
+        return
 
     if not task or not dataset:
         click.echo("usage: pm-bench leaderboard <task> <dataset> [--verify]  OR  --all", err=True)
@@ -756,9 +898,20 @@ def leaderboard(
     except FileNotFoundError:
         click.echo(f"no leaderboard at {path}", err=True)
         sys.exit(1)
+    except (json.JSONDecodeError, KeyError, ValueError, TypeError) as exc:
+        click.echo(f"{path}: malformed - {exc}", err=True)
+        sys.exit(2)
 
     if do_verify:
-        drifts = verify(board, repo_root=repo_root)
+        try:
+            drifts = verify(board, repo_root=repo_root)
+        except OSError as exc:
+            click.echo(
+                f"predictions not readable ({exc.filename or exc}); "
+                "check --repo-root and the entry's predictions_path",
+                err=True,
+            )
+            sys.exit(2)
         if drifts:
             for d in drifts:
                 click.echo(d, err=True)
@@ -824,9 +977,19 @@ def validate(board_path: str, repo_root: str, no_rescore: bool) -> None:
     structural schema validation, then a fresh rescore against the
     referenced predictions. `--no-rescore` for a fast schema-only check.
     """
-    import json as _json
+    from pathlib import Path as _Path
 
-    raw = _json.loads(open(board_path).read())  # noqa: SIM115
+    try:
+        raw = json.loads(_Path(board_path).read_text(encoding="utf-8-sig"))
+    except json.JSONDecodeError as exc:
+        click.echo(f"{board_path}: not valid JSON ({exc})", err=True)
+        sys.exit(2)
+    if not isinstance(raw, dict):
+        click.echo(
+            f"{board_path}: top-level JSON must be an object, got {type(raw).__name__}",
+            err=True,
+        )
+        sys.exit(2)
     schema_errors = validate_board(raw)
     if schema_errors:
         for e in schema_errors:
@@ -837,8 +1000,25 @@ def validate(board_path: str, repo_root: str, no_rescore: bool) -> None:
         click.echo(f"{board_path}: schema OK ({len(raw['entries'])} entr(ies))")
         return
 
+    # `load_board` re-parses the JSON we already have in `raw`. Pay that
+    # cost once — the file is small and the alternative is leaking the
+    # Board construction into this command.
     board = load_board(board_path)
-    drifts = verify(board, repo_root=repo_root)
+    try:
+        drifts = verify(board, repo_root=repo_root)
+    except OSError as exc:
+        click.echo(
+            f"score: predictions file not readable ({exc.filename or exc}); "
+            "check --repo-root and the entry's predictions_path",
+            err=True,
+        )
+        sys.exit(2)
+    except (KeyError, ValueError) as exc:
+        # KeyError = predictions file opened but missing a required column
+        # (e.g., predictions_path points at /etc/passwd or any non-CSV).
+        # ValueError = bad model JSON for conformance.
+        click.echo(f"score: {exc}", err=True)
+        sys.exit(2)
     if drifts:
         for d in drifts:
             click.echo(f"score: {d}", err=True)
@@ -857,13 +1037,25 @@ def compare(board_a: str, board_b: str) -> None:
     Use case: snapshot today's standings, change something, run again,
     diff. Models that exist on only one side are surfaced separately.
     """
-    a = load_board(board_a)
-    b = load_board(board_b)
     try:
+        a = load_board(board_a)
+        b = load_board(board_b)
         result = compare_boards(a, b)
+    except json.JSONDecodeError as exc:
+        click.echo(f"not valid JSON: {exc}", err=True)
+        sys.exit(2)
+    except (KeyError, TypeError) as exc:
+        # KeyError: missing top-level key; TypeError: wrong shape (e.g.
+        # entries is a string, so `for e in raw["entries"]` iterates
+        # chars and `e["model"]` errors). Both indicate "not a board".
+        click.echo(f"not a leaderboard file ({exc})", err=True)
+        sys.exit(2)
     except ValueError as exc:
+        # Runtime mismatch (different (task, dataset) on the two files)
+        # → exit 2 per the convention in cli.py: 1 for usage / not-found,
+        # 2 for runtime errors after args are accepted.
         click.echo(str(exc), err=True)
-        sys.exit(1)
+        sys.exit(2)
     click.echo(json.dumps(result, indent=2))
 
 

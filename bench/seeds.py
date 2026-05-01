@@ -17,7 +17,6 @@ from __future__ import annotations
 
 import argparse
 import statistics
-from collections.abc import Callable
 
 from pm_bench import _synth
 from pm_bench.baselines.markov import fit_markov, predict_markov
@@ -98,6 +97,8 @@ def _run_one(seed: int, task: str) -> dict:
 
 def variance(task: str, n_seeds: int) -> dict:
     """Return mean / std / min / max across seeds for a task's headline metric."""
+    if n_seeds < 1:
+        raise ValueError(f"n_seeds must be >= 1, got {n_seeds}")
     runs = [_run_one(seed, task) for seed in range(n_seeds)]
     metric_keys = list(runs[0].keys())
     out: dict = {"task": task, "n_seeds": n_seeds, "metrics": {}}
@@ -105,7 +106,12 @@ def variance(task: str, n_seeds: int) -> dict:
         values = [r[k] for r in runs]
         out["metrics"][k] = {
             "mean": statistics.fmean(values),
-            "std": statistics.pstdev(values) if n_seeds > 1 else 0.0,
+            # Sample stdev (n-1 denominator). The seed list is a sample
+            # from the infinite population of synthetic draws, and the
+            # documented use ("compare a single new run against this
+            # band" — see CONTRIBUTING.md) is inferential, not
+            # descriptive. Population stdev would underestimate.
+            "std": statistics.stdev(values) if n_seeds > 1 else 0.0,
             "min": min(values),
             "max": max(values),
         }
@@ -153,7 +159,3 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
-
-# Re-export for tests that prefer the function APIs.
-_run_one_callable: Callable[[int, str], dict] = _run_one

@@ -47,19 +47,66 @@ def extract_dfg(
 
 
 def write_model_json(transitions: Iterable[tuple[Activity, Activity]], path: str | Path) -> int:
-    """Write a submission model JSON. Returns the number of transitions."""
+    """Write a submission model JSON (plain or `.gz`) atomically.
+
+    Auto-creates the parent directory if missing. Stages to a tmp file
+    and `Path.replace`s on success so a `KeyboardInterrupt` mid-write
+    doesn't leave a half-written file at the destination (which the
+    next `pm-bench score --task conformance` would crash on).
+    """
+    import os
+    import uuid
+
     pairs = sorted({tuple(t) for t in transitions})
-    Path(path).write_text(json.dumps({"transitions": [list(p) for p in pairs]}, indent=2))
+    data = json.dumps({"transitions": [list(p) for p in pairs]}, indent=2)
+    p = Path(path)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    # Insert PID + UUID into the tmp suffix so concurrent processes
+    # don't clobber each other's staging file before the final rename.
+    sp = str(p)
+    if sp.endswith(".gz"):
+        tmp = Path(sp[:-3] + f".{os.getpid()}-{uuid.uuid4().hex}.tmp.gz")
+    else:
+        tmp = Path(sp + f".{os.getpid()}-{uuid.uuid4().hex}.tmp")
+    try:
+        if str(tmp).endswith(".gz"):
+            import gzip
+
+            with gzip.open(tmp, "wt", encoding="utf-8") as f:
+                f.write(data)
+        else:
+            tmp.write_text(data, encoding="utf-8")
+        tmp.replace(p)
+    except BaseException:
+        try:
+            tmp.unlink(missing_ok=True)
+        except OSError:
+            pass
+        raise
     return len(pairs)
 
 
 def read_model_json(path: str | Path) -> set[tuple[Activity, Activity]]:
-    """Read a submission model JSON into a set of (a, b) pairs.
+    """Read a submission model JSON into a set of (a, b) pairs (plain or `.gz`).
 
     Tolerates duplicates and any order. Raises ValueError if the JSON
-    is missing the `transitions` key or has a wrong shape.
+    is missing the `transitions` key or any pair is not a 2-tuple of
+    strings. Non-string pair elements would silently fail to overlap
+    the truth DFG (also string-keyed) and the user would see an
+    unexplained `fitness=0`.
     """
-    raw = json.loads(Path(path).read_text())
+    p = Path(path)
+    # Match the rest of pm-bench's I/O: `.gz` is transparent. Without
+    # this, a leaderboard entry whose `predictions_path` points at
+    # `model.json.gz` passes schema (no extension restriction) and
+    # then blows up with a UTF-8 decode of raw gzip bytes at verify.
+    if str(p).endswith(".gz"):
+        import gzip
+
+        with gzip.open(p, "rt", encoding="utf-8-sig") as f:
+            raw = json.load(f)
+    else:
+        raw = json.loads(p.read_text(encoding="utf-8-sig"))
     if not isinstance(raw, dict) or "transitions" not in raw:
         raise ValueError(f"{path}: model JSON must have a top-level 'transitions' key")
     pairs = raw["transitions"]
@@ -69,5 +116,10 @@ def read_model_json(path: str | Path) -> set[tuple[Activity, Activity]]:
     for i, p in enumerate(pairs):
         if not isinstance(p, list) or len(p) != 2:
             raise ValueError(f"{path}: transitions[{i}] must be a 2-element list")
+        if not (isinstance(p[0], str) and isinstance(p[1], str)):
+            raise ValueError(
+                f"{path}: transitions[{i}] must be [string, string]; got "
+                f"[{type(p[0]).__name__}, {type(p[1]).__name__}]"
+            )
         out.add((p[0], p[1]))
     return out

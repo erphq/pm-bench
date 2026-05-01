@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import csv
 import gzip
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 from pm_bench.split import Event
@@ -57,19 +57,58 @@ def read_csv_log(path: str | Path) -> list[Event]:
     The CSV must have a header. Columns are matched by name (PM4Py
     aliases supported). Timestamps are parsed via `datetime.fromisoformat`,
     which accepts ISO 8601 with seconds precision.
+
+    Tolerates UTF-8 BOM (Excel-exported CSVs). Mixed tz-aware /
+    tz-naive timestamps are normalized to naive — we don't model
+    timezones, only relative ordering and durations.
     """
     p = Path(path)
     opener = gzip.open if str(p).endswith(".gz") else open
     out: list[Event] = []
-    with opener(p, "rt", newline="") as f:
+    # `utf-8-sig` strips a leading BOM if present; otherwise behaves
+    # like utf-8. Without this, an Excel-style BOM makes the first
+    # column read back as `﻿case_id` and the alias resolution
+    # fails with a misleading "missing case_id" error.
+    with opener(p, "rt", newline="", encoding="utf-8-sig") as f:
         reader = csv.DictReader(f)
         if reader.fieldnames is None:
             raise ValueError(f"{path}: CSV is empty or missing a header")
         case_col, act_col, ts_col = _resolve_columns(list(reader.fieldnames))
         for i, row in enumerate(reader, start=2):  # row 2 = first data row
+            # Strip leading/trailing whitespace from the three columns we
+            # consume. Spreadsheet exports routinely emit `" c1"` rows
+            # alongside `"c1"` rows, which would otherwise become two
+            # distinct case ids and silently halve every metric. Our own
+            # writers never emit padded values, so this is a safe
+            # round-trip narrowing of the input.
+            cid_raw = row.get(case_col)
+            act_raw = row.get(act_col)
+            ts_raw_obj = row.get(ts_col)
+            if cid_raw is None or act_raw is None or ts_raw_obj is None:
+                raise ValueError(
+                    f"{path}:{i}: short row — missing one of "
+                    f"{case_col!r}/{act_col!r}/{ts_col!r}"
+                )
             try:
-                ts = datetime.fromisoformat(row[ts_col])
-            except (KeyError, ValueError) as exc:
-                raise ValueError(f"{path}:{i}: bad timestamp {row.get(ts_col)!r}") from exc
-            out.append((row[case_col], row[act_col], ts))
+                ts = datetime.fromisoformat(ts_raw_obj.strip())
+            except ValueError as exc:
+                raise ValueError(f"{path}:{i}: bad timestamp {ts_raw_obj!r}") from exc
+            # Normalize away any tzinfo so a CSV mixing aware + naive
+            # rows doesn't blow up later when we subtract two timestamps
+            # in a split or duration calc. Convert to UTC first — a bare
+            # `replace(tzinfo=None)` keeps the wall-clock value, which
+            # silently reorders aware rows relative to naive ones.
+            if ts.tzinfo is not None:
+                ts = ts.astimezone(timezone.utc).replace(tzinfo=None)
+            cid = cid_raw.strip()
+            act = act_raw.strip()
+            # Empty case_id would silently aggregate every blank-id row
+            # into one phantom case. Empty activity is rejected at write
+            # time; reject both on read so the contract is symmetric and
+            # the user catches the data-quality issue before training.
+            if not cid:
+                raise ValueError(f"{path}:{i}: empty case_id")
+            if not act:
+                raise ValueError(f"{path}:{i}: empty activity")
+            out.append((cid, act, ts))
     return out

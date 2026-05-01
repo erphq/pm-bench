@@ -70,6 +70,59 @@ def test_verify_detects_drift(tmp_path) -> None:
     assert any("top1 drift" in d for d in drifts)
 
 
+def test_board_to_markdown_handles_zero_entries() -> None:
+    """An empty board renders header + table header but no data rows
+    (and doesn't crash on `max(... default=10)`)."""
+    from pm_bench.leaderboard import Board, board_to_markdown
+
+    b = Board(task="next-event", dataset="x", metric="m", entries=[], raw={})
+    md = board_to_markdown(b)
+    assert "next-event" in md
+    assert "| Model |" in md
+    # No data rows beyond header + separator
+    body_lines = [
+        line for line in md.splitlines()
+        if line.startswith("|") and not set(line.strip()) <= set("|-:") and "Model" not in line
+    ]
+    assert body_lines == []
+
+
+def test_verify_catches_extra_score_keys(tmp_path) -> None:
+    """A board claiming task=outcome but with `top1` in its recorded
+    score (logically incoherent) used to pass verify silently because
+    the loop only iterated keys produced by the scorer."""
+    import shutil
+
+    src = REPO_ROOT / "leaderboard"
+    dst = tmp_path / "leaderboard"
+    shutil.copytree(src, dst)
+    target = dst / "outcome" / "synthetic-toy.json"
+    raw = json.loads(target.read_text())
+    raw["entries"][0]["score"]["top1"] = 0.9  # nonsensical for outcome
+    target.write_text(json.dumps(raw))
+    board = load_board(target)
+    drifts = verify(board, repo_root=tmp_path)
+    assert any("extra key" in d and "top1" in d for d in drifts)
+
+
+def test_verify_detects_drift_on_second_entry(tmp_path) -> None:
+    """Verify must catch drift even when only entries[1:] is tampered.
+
+    Earlier tests only ever mutated entries[0]; if `verify` ever
+    short-circuited on the first entry, that bug would slip through.
+    Every board now has ≥ 2 entries, so this is exercisable."""
+    src = json.loads(BOARD_PATH.read_text())
+    assert len(src["entries"]) >= 2, "test assumes board has 2+ entries"
+    src["entries"][-1]["score"]["top1"] = 0.111
+    fake = tmp_path / "fake.json"
+    fake.write_text(json.dumps(src))
+    board = load_board(fake)
+    drifts = verify(board, repo_root=REPO_ROOT)
+    assert any("top1 drift" in d for d in drifts)
+    # And the drift message names the second entry, not the first.
+    assert any(src["entries"][-1]["model"] in d for d in drifts)
+
+
 def test_cli_leaderboard_verify_passes() -> None:
     """`pm-bench leaderboard ... --verify` must exit 0 and report 'no drift'."""
     runner = CliRunner()

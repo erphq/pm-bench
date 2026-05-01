@@ -7,7 +7,8 @@
 **Datasets. Splits. Scoring. Leaderboard. Companion to `gnn`.**
 
 [![license](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
-[![status](https://img.shields.io/badge/status-pre--v0-orange.svg)](#roadmap)
+[![status](https://img.shields.io/badge/status-v0.4-green.svg)](#roadmap)
+[![tests](https://img.shields.io/badge/tests-229%20passing-green.svg)](./tests)
 [![python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](#install)
 
 </div>
@@ -51,7 +52,7 @@ state of the art.
 | Task | Metric | What you predict |
 |---|---|---|
 | Next-event prediction | top-1 / top-3 accuracy | Activity at position `k+1` given prefix of length `k` |
-| Remaining-time prediction | MAE in days, weighted by case length | Time from now to case completion |
+| Remaining-time prediction | MAE in days (per-prefix, equally weighted) | Time from now to case completion |
 | Outcome prediction | AUC | Binary outcome (e.g., "loan approved" / "case escalated") |
 | Conformance checking | F-score (fitness × precision) | How well a discovered model fits held-out cases |
 | Bottleneck detection | NDCG@10 | Rank of transitions by held-out wait time |
@@ -99,6 +100,14 @@ hash before scoring - if you've subtly modified the file, you'll know.
 We don't host the datasets ourselves; we fetch from the canonical URLs
 and cache locally. Datasets carry their original licenses (linked in
 `datasets/registry.yml`).
+
+> **Status of the seven datasets above:** the fetch + sha256 + cache
+> machinery ships in this repo, but each dataset's hash pin is gated on
+> a one-time interactive TOS acceptance at 4TU / Mendeley. Until that
+> manual step is done per dataset, only `synthetic-toy` (bundled) and
+> arbitrary user CSVs run through the pipeline end-to-end. `pm-bench
+> fetch <name>` walks you through the manual step and the registry PR
+> when you're ready.
 
 ## ✦ Install & use
 
@@ -260,27 +269,47 @@ honesty. The point of the benchmark is to make the comparison real.
 
 ## ✦ Roadmap
 
-- [x] v0.0 - scaffold, dataset registry, split design
-- [x] v0.0.1 - end-to-end loop on `synthetic-toy`: split → prefixes →
-      predict (Markov) → score, with a smoke test that locks the file
-      formats
-- [🟡] v0.1 - fetch + cache + hash for all 7 datasets. Machinery
-      shipped (`pm-bench fetch <name> [--pin]`, sha256 verification,
-      `$PM_BENCH_CACHE` resolution); per-dataset hash-pinning PRs
-      pending the one-time TOS-gated downloads from 4TU and Mendeley.
-- [x] v0.2 - splits + targets for next-event ✅ and remaining-time ✅
-- [x] v0.3 - scoring scripts for all 5 tasks ✅. next-event,
-      remaining-time, outcome, bottleneck, conformance - every task
-      ships with a CPython baseline and a real leaderboard entry on
-      synthetic-toy. All five entries are verified by
+- [x] **v0.0** — scaffold, dataset registry, split design
+- [x] **v0.0.1** — end-to-end loop on `synthetic-toy` (split → prefixes
+      → predict → score), file formats locked by `tests/test_e2e.py`
+- [🟡] **v0.1** — fetch + cache + hash. Machinery shipped (`pm-bench
+      fetch <name> [--pin]`, sha256 verification, atomic + concurrent-
+      safe download, `$PM_BENCH_CACHE` resolution); per-dataset hash
+      pins remain pending one-time TOS-gated downloads from 4TU /
+      Mendeley.
+- [x] **v0.2** — splits + targets for all 5 tasks (case-chrono with
+      tiebreaker, deterministic across runs)
+- [x] **v0.3** — scoring scripts for all 5 tasks. next-event,
+      remaining-time, outcome, bottleneck, conformance. Every task
+      ships with a CPython baseline AND a floor baseline (so every
+      board has ≥2 entries). All verified by
       `pm-bench leaderboard --all --verify` in CI.
-- [x] v0.4 - leaderboard CI + landing page. Standings JSON,
-      reference entries, `pm-bench leaderboard [--all] [--verify]
-      [--markdown]`, the dedicated `leaderboard.yml` GitHub workflow,
-      and an auto-generated [STANDINGS.md](./STANDINGS.md) all
-      shipped; CI fails if the checked-in STANDINGS.md drifts.
-- [ ] v0.5 - baselines: `gnn`, transformer, LSTM, Markov ✅ (Markov shipped)
-- [ ] v1.0 - first external submissions; cited in ≥1 paper
+- [x] **v0.4** — leaderboard CI + landing page. Standings JSON,
+      JSON Schema validator, reference entries, `pm-bench leaderboard
+      [--all] [--verify] [--markdown]`, dedicated `leaderboard.yml`
+      workflow, `pm-bench validate <board.json>` pre-flight,
+      `pm-bench compare A.json B.json` with direction annotations,
+      auto-generated [STANDINGS.md](./STANDINGS.md) with staleness
+      check, hardened against malformed input across every CLI verb.
+- [ ] **v0.5** — pin first BPI dataset (one-time TOS step) + add
+      `gnn` as the second reference baseline.
+- [ ] **v1.0** — first external submissions; cited in ≥1 paper.
+
+### Quality bar
+
+- **229 tests** covering correctness, drift detection, schema
+  validation, error paths, and reproducibility across all 5 tasks.
+- **Atomic writes** with PID+UUID staging on every CSV/JSON writer
+  (concurrent-safe).
+- **Schema-validated leaderboard JSON** rejecting absolute /
+  traversing `predictions_path`, malformed model names, non-numeric
+  scores, non-ISO timestamps.
+- **CSV ingest** strips BOMs, normalizes timezones to UTC, rejects
+  empty/whitespace IDs, lifts the 128 KiB field-size limit.
+- **Determinism**: every reference number stable across runs,
+  re-verified on every PR.
+- 12 audit rounds since v0.4 surfaced ~60 distinct correctness/
+  robustness issues — all addressed.
 
 ## ✦ Topics
 

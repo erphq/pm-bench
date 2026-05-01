@@ -76,33 +76,39 @@ def extract_bottleneck_targets(
 def write_bottleneck_targets_csv(
     targets: Iterable[BottleneckTarget], path: str
 ) -> int:
-    """Write bottleneck targets to a CSV file."""
-    import csv
+    """Write bottleneck targets to a CSV file (plain or `.gz`)."""
+    from pm_bench.predictions import _atomic_csv_write
 
-    n = 0
-    with open(path, "w", newline="") as f:
-        w = csv.writer(f)
-        w.writerow(["activity_a", "activity_b", "mean_wait_seconds", "n_observations"])
-        for t in targets:
-            w.writerow([t.activity_a, t.activity_b, repr(t.mean_wait_seconds), t.n_observations])
-            n += 1
-    return n
+    return _atomic_csv_write(
+        path,
+        ["activity_a", "activity_b", "mean_wait_seconds", "n_observations"],
+        (
+            (t.activity_a, t.activity_b, repr(t.mean_wait_seconds), t.n_observations)
+            for t in targets
+        ),
+    )
 
 
 def read_bottleneck_targets_csv(path: str) -> list[BottleneckTarget]:
-    """Read a bottleneck-targets CSV."""
+    """Read a bottleneck-targets CSV (plain or `.gz`)."""
     import csv
 
+    from pm_bench.predictions import _open_text, _require_field
+
     out: list[BottleneckTarget] = []
-    with open(path, newline="") as f:
+    with _open_text(path) as f:
         r = csv.DictReader(f)
-        for row in r:
+        for i, row in enumerate(r, start=2):
+            a = _require_field(row, "activity_a", i, str(path)).strip()
+            b = _require_field(row, "activity_b", i, str(path)).strip()
+            mw = _require_field(row, "mean_wait_seconds", i, str(path))
+            no = _require_field(row, "n_observations", i, str(path))
             out.append(
                 BottleneckTarget(
-                    activity_a=row["activity_a"],
-                    activity_b=row["activity_b"],
-                    mean_wait_seconds=float(row["mean_wait_seconds"]),
-                    n_observations=int(row["n_observations"]),
+                    activity_a=a,
+                    activity_b=b,
+                    mean_wait_seconds=float(mw),
+                    n_observations=int(no),
                 )
             )
     return out
@@ -111,32 +117,50 @@ def read_bottleneck_targets_csv(path: str) -> list[BottleneckTarget]:
 def write_bottleneck_predictions_csv(
     predictions: Iterable[BottleneckPrediction], path: str
 ) -> int:
-    """Write bottleneck predictions to a CSV file."""
-    import csv
+    """Write bottleneck predictions to a CSV file (plain or `.gz`).
 
-    n = 0
-    with open(path, "w", newline="") as f:
-        w = csv.writer(f)
-        w.writerow(["activity_a", "activity_b", "predicted_wait_seconds"])
+    Rejects NaN / Inf in `predicted_wait_seconds` — symmetric with the
+    score function's finite check.
+    """
+    import math
+
+    from pm_bench.predictions import _atomic_csv_write
+
+    def _rows():
         for p in predictions:
-            w.writerow([p.activity_a, p.activity_b, repr(p.predicted_wait_seconds)])
-            n += 1
-    return n
+            if not math.isfinite(p.predicted_wait_seconds):
+                raise ValueError(
+                    f"predicted_wait_seconds for ({p.activity_a!r}, "
+                    f"{p.activity_b!r}) is {p.predicted_wait_seconds!r}; "
+                    "must be finite"
+                )
+            yield (p.activity_a, p.activity_b, repr(p.predicted_wait_seconds))
+
+    return _atomic_csv_write(
+        path,
+        ["activity_a", "activity_b", "predicted_wait_seconds"],
+        _rows(),
+    )
 
 
 def read_bottleneck_predictions_csv(path: str) -> list[BottleneckPrediction]:
-    """Read a bottleneck-predictions CSV."""
+    """Read a bottleneck-predictions CSV (plain or `.gz`)."""
     import csv
 
+    from pm_bench.predictions import _open_text, _require_field
+
     out: list[BottleneckPrediction] = []
-    with open(path, newline="") as f:
+    with _open_text(path) as f:
         r = csv.DictReader(f)
-        for row in r:
+        for i, row in enumerate(r, start=2):
+            a = _require_field(row, "activity_a", i, str(path)).strip()
+            b = _require_field(row, "activity_b", i, str(path)).strip()
+            pw = _require_field(row, "predicted_wait_seconds", i, str(path))
             out.append(
                 BottleneckPrediction(
-                    activity_a=row["activity_a"],
-                    activity_b=row["activity_b"],
-                    predicted_wait_seconds=float(row["predicted_wait_seconds"]),
+                    activity_a=a,
+                    activity_b=b,
+                    predicted_wait_seconds=float(pw),
                 )
             )
     return out

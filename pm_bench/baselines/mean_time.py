@@ -58,32 +58,50 @@ def predict_mean_time(
 
 
 def write_time_predictions_csv(predictions: Iterable[TimePrediction], path: str) -> int:
-    """Write remaining-time predictions to CSV. Returns row count."""
-    import csv
+    """Write remaining-time predictions to CSV (plain or `.gz`). Returns row count.
 
-    n = 0
-    with open(path, "w", newline="") as f:
-        w = csv.writer(f)
-        w.writerow(["case_id", "prefix_idx", "predicted_days"])
+    Rejects NaN / Inf at write time — score functions reject them too,
+    but a baseline that produced one would otherwise round-trip a "valid"
+    CSV that only fails at score time.
+    """
+    import math
+
+    from pm_bench.predictions import _atomic_csv_write
+
+    def _rows():
         for p in predictions:
-            w.writerow([p.case_id, p.prefix_idx, repr(p.predicted_days)])
-            n += 1
-    return n
+            if not math.isfinite(p.predicted_days):
+                raise ValueError(
+                    f"predicted_days for ({p.case_id!r}, {p.prefix_idx}) "
+                    f"is {p.predicted_days!r}; must be finite"
+                )
+            yield (p.case_id, p.prefix_idx, repr(p.predicted_days))
+
+    return _atomic_csv_write(
+        path,
+        ["case_id", "prefix_idx", "predicted_days"],
+        _rows(),
+    )
 
 
 def read_time_predictions_csv(path: str) -> list[TimePrediction]:
-    """Read a remaining-time predictions CSV."""
+    """Read a remaining-time predictions CSV (plain or `.gz`)."""
     import csv
 
+    from pm_bench.predictions import _open_text, _require_field
+
     out: list[TimePrediction] = []
-    with open(path, newline="") as f:
+    with _open_text(path) as f:
         r = csv.DictReader(f)
-        for row in r:
+        for i, row in enumerate(r, start=2):
+            cid = _require_field(row, "case_id", i, str(path)).strip()
+            pidx = _require_field(row, "prefix_idx", i, str(path)).strip()
+            pd = _require_field(row, "predicted_days", i, str(path))
             out.append(
                 TimePrediction(
-                    case_id=row["case_id"],
-                    prefix_idx=int(row["prefix_idx"]),
-                    predicted_days=float(row["predicted_days"]),
+                    case_id=cid,
+                    prefix_idx=int(pidx),
+                    predicted_days=float(pd),
                 )
             )
     return out

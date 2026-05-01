@@ -101,32 +101,48 @@ def write_outcome_predictions_csv(
     predictions: Iterable[OutcomePrediction],
     path: str,
 ) -> int:
-    """Write outcome predictions to CSV. Returns row count."""
-    import csv
+    """Write outcome predictions to CSV (plain or `.gz`). Returns row count.
 
-    n = 0
-    with open(path, "w", newline="") as f:
-        w = csv.writer(f)
-        w.writerow(["case_id", "prefix_idx", "score"])
+    Rejects NaN / Inf at write time — symmetric with the score function.
+    """
+    import math
+
+    from pm_bench.predictions import _atomic_csv_write
+
+    def _rows():
         for p in predictions:
-            w.writerow([p.case_id, p.prefix_idx, repr(p.score)])
-            n += 1
-    return n
+            if not math.isfinite(p.score):
+                raise ValueError(
+                    f"score for ({p.case_id!r}, {p.prefix_idx}) is "
+                    f"{p.score!r}; must be finite"
+                )
+            yield (p.case_id, p.prefix_idx, repr(p.score))
+
+    return _atomic_csv_write(
+        path,
+        ["case_id", "prefix_idx", "score"],
+        _rows(),
+    )
 
 
 def read_outcome_predictions_csv(path: str) -> list[OutcomePrediction]:
-    """Read an outcome predictions CSV."""
+    """Read an outcome predictions CSV (plain or `.gz`)."""
     import csv
 
+    from pm_bench.predictions import _open_text, _require_field
+
     out: list[OutcomePrediction] = []
-    with open(path, newline="") as f:
+    with _open_text(path) as f:
         r = csv.DictReader(f)
-        for row in r:
+        for i, row in enumerate(r, start=2):
+            cid = _require_field(row, "case_id", i, str(path)).strip()
+            pidx = _require_field(row, "prefix_idx", i, str(path)).strip()
+            sc = _require_field(row, "score", i, str(path))
             out.append(
                 OutcomePrediction(
-                    case_id=row["case_id"],
-                    prefix_idx=int(row["prefix_idx"]),
-                    score=float(row["score"]),
+                    case_id=cid,
+                    prefix_idx=int(pidx),
+                    score=float(sc),
                 )
             )
     return out

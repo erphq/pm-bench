@@ -57,7 +57,11 @@ def case_chrono_split(
         if existing is None or ts < existing:
             case_starts[case_id] = ts
 
-    ordered = sorted(case_starts.keys(), key=lambda c: case_starts[c])
+    # Secondary sort by case_id so cases with identical start timestamps
+    # partition deterministically across runs (without it, the split
+    # depended on dict-iteration order, which depended on event-input
+    # order — same input twice could produce different splits).
+    ordered = sorted(case_starts.keys(), key=lambda c: (case_starts[c], c))
     n = len(ordered)
     if n == 0:
         return Split(train=[], val=[], test=[])

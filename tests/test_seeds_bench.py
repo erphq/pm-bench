@@ -38,3 +38,8 @@ def test_render_markdown_has_header() -> None:
 def test_run_one_unknown_task_raises() -> None:
     with pytest.raises(ValueError, match="unknown task"):
         _run_one(seed=0, task="not-a-task")
+
+
+def test_variance_zero_seeds_raises() -> None:
+    with pytest.raises(ValueError, match="n_seeds must be >= 1"):
+        variance("next-event", n_seeds=0)

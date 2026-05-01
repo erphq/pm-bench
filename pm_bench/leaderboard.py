@@ -13,19 +13,21 @@ file changes alongside it - no exceptions.
 """
 from __future__ import annotations
 
-import csv
-import gzip
 import json
 import math
-from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 
-from pm_bench.bottleneck import BottleneckTarget, extract_bottleneck_targets
+from pm_bench.baselines.mean_time import read_time_predictions_csv
+from pm_bench.baselines.prior_outcome import read_outcome_predictions_csv
+from pm_bench.bottleneck import (
+    BottleneckTarget,
+    extract_bottleneck_targets,
+    read_bottleneck_predictions_csv,
+)
 from pm_bench.conformance import extract_dfg, read_model_json
-from pm_bench.predictions import Prediction
+from pm_bench.predictions import read_predictions_csv
 from pm_bench.prefixes import (
-    PREFIX_SEP,
     OutcomeTarget,
     Prefix,
     TimeTarget,
@@ -63,10 +65,27 @@ class Board:
     raw: dict
 
 
+_VALID_TASKS: set[str] = {
+    "next-event",
+    "remaining-time",
+    "outcome",
+    "bottleneck",
+    "conformance",
+}
+
+
 def load_board(path: str | Path) -> Board:
-    """Load a leaderboard JSON file."""
+    """Load a leaderboard JSON file. Validates task is one we know about
+    (downstream code formats numbers per-task and would crash on
+    `f"{None:.4f}"` if a typo'd task slipped through)."""
     p = Path(path)
-    raw = json.loads(p.read_text())
+    raw = json.loads(p.read_text(encoding="utf-8-sig"))
+    task = raw["task"]
+    if task not in _VALID_TASKS:
+        raise ValueError(
+            f"{path}: unknown task {task!r}; expected one of "
+            f"{sorted(_VALID_TASKS)!r}"
+        )
     entries = [
         Entry(
             model=e["model"],
@@ -81,27 +100,12 @@ def load_board(path: str | Path) -> Board:
         for e in raw["entries"]
     ]
     return Board(
-        task=raw["task"],
+        task=task,
         dataset=raw["dataset"],
         metric=raw["metric"],
         entries=entries,
         raw=raw,
     )
-
-
-def _open_predictions(path: Path) -> Iterable[Prediction]:
-    """Yield Prediction rows from a (gzipped or plain) CSV file."""
-    opener = gzip.open if str(path).endswith(".gz") else open
-    with opener(path, "rt", newline="") as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            ranked_str = row["predictions"]
-            ranked = tuple(ranked_str.split(PREFIX_SEP)) if ranked_str else ()
-            yield Prediction(
-                case_id=row["case_id"],
-                prefix_idx=int(row["prefix_idx"]),
-                ranked=ranked,
-            )
 
 
 def _events_and_test_cases(name: str):
@@ -159,6 +163,32 @@ def _outcome_truth_for_dataset(name: str) -> list[OutcomeTarget]:
     )
 
 
+def _missing_targets_error(model: str, missing: list) -> ValueError:
+    return ValueError(
+        f"{model}: predictions missing {len(missing)} target(s); "
+        f"first missing {missing[0]}"
+    )
+
+
+def _check_unique_keys(rows: list, key_fn, label: str) -> None:
+    """Ensure no two rows share the same key.
+
+    A duplicate (case_id, prefix_idx) — or (a, b) for bottleneck — in
+    predictions would silently overwrite during the dict-build step
+    used everywhere else in this module. We surface it loudly: a
+    submission with duplicates is a buggy submission and should fail
+    fast, not get scored against an arbitrary "last write wins" pick.
+    """
+    seen: dict = {}
+    for r in rows:
+        k = key_fn(r)
+        if k in seen:
+            raise ValueError(
+                f"{label}: duplicate key {k} in predictions"
+            )
+        seen[k] = r
+
+
 def _rescore_next_event(board: Board, repo_root: Path) -> list[tuple[Entry, dict]]:
     truth = _truth_for_dataset(board.dataset)
     truth_keys = [(t.case_id, t.prefix_idx) for t in truth]
@@ -167,16 +197,12 @@ def _rescore_next_event(board: Board, repo_root: Path) -> list[tuple[Entry, dict
     out: list[tuple[Entry, dict]] = []
     for entry in board.entries:
         pred_path = repo_root / entry.predictions_path
-        pred_lookup = {
-            (p.case_id, p.prefix_idx): list(p.ranked)
-            for p in _open_predictions(pred_path)
-        }
+        rows = read_predictions_csv(str(pred_path))
+        _check_unique_keys(rows, lambda p: (p.case_id, p.prefix_idx), entry.model)
+        pred_lookup = {(p.case_id, p.prefix_idx): list(p.ranked) for p in rows}
         missing = [k for k in truth_keys if k not in pred_lookup]
         if missing:
-            raise ValueError(
-                f"{entry.model}: predictions missing {len(missing)} target(s); "
-                f"first missing {missing[0]}"
-            )
+            raise _missing_targets_error(entry.model, missing)
         ranked = [pred_lookup[k] for k in truth_keys]
         s = score_next_event(ranked, truth_next)
         out.append((entry, {"top1": s.top1, "top3": s.top3, "n": s.n}))
@@ -184,9 +210,6 @@ def _rescore_next_event(board: Board, repo_root: Path) -> list[tuple[Entry, dict
 
 
 def _rescore_remaining_time(board: Board, repo_root: Path) -> list[tuple[Entry, dict]]:
-    import csv
-    import gzip
-
     truth = _time_truth_for_dataset(board.dataset)
     truth_keys = [(t.case_id, t.prefix_idx) for t in truth]
     truth_floats = [t.remaining_days for t in truth]
@@ -194,18 +217,12 @@ def _rescore_remaining_time(board: Board, repo_root: Path) -> list[tuple[Entry, 
     out: list[tuple[Entry, dict]] = []
     for entry in board.entries:
         pred_path = repo_root / entry.predictions_path
-        opener = gzip.open if str(pred_path).endswith(".gz") else open
-        pred_lookup: dict[tuple[str, int], float] = {}
-        with opener(pred_path, "rt", newline="") as f:
-            reader = csv.DictReader(f)
-            for row in reader:
-                pred_lookup[(row["case_id"], int(row["prefix_idx"]))] = float(row["predicted_days"])
+        rows = read_time_predictions_csv(str(pred_path))
+        _check_unique_keys(rows, lambda p: (p.case_id, p.prefix_idx), entry.model)
+        pred_lookup = {(p.case_id, p.prefix_idx): p.predicted_days for p in rows}
         missing = [k for k in truth_keys if k not in pred_lookup]
         if missing:
-            raise ValueError(
-                f"{entry.model}: predictions missing {len(missing)} target(s); "
-                f"first missing {missing[0]}"
-            )
+            raise _missing_targets_error(entry.model, missing)
         preds = [pred_lookup[k] for k in truth_keys]
         s = score_remaining_time(preds, truth_floats)
         out.append((entry, {"mae_days": s.mae_days, "n": s.n}))
@@ -213,23 +230,15 @@ def _rescore_remaining_time(board: Board, repo_root: Path) -> list[tuple[Entry, 
 
 
 def _rescore_bottleneck(board: Board, repo_root: Path) -> list[tuple[Entry, dict]]:
-    import csv
-    import gzip
-
     truth = _bottleneck_truth_for_dataset(board.dataset)
     truth_dict = {(t.activity_a, t.activity_b): t.mean_wait_seconds for t in truth}
 
     out: list[tuple[Entry, dict]] = []
     for entry in board.entries:
         pred_path = repo_root / entry.predictions_path
-        opener = gzip.open if str(pred_path).endswith(".gz") else open
-        pred_dict: dict[tuple[str, str], float] = {}
-        with opener(pred_path, "rt", newline="") as f:
-            reader = csv.DictReader(f)
-            for row in reader:
-                pred_dict[(row["activity_a"], row["activity_b"])] = float(
-                    row["predicted_wait_seconds"]
-                )
+        rows = read_bottleneck_predictions_csv(str(pred_path))
+        _check_unique_keys(rows, lambda p: (p.activity_a, p.activity_b), entry.model)
+        pred_dict = {(p.activity_a, p.activity_b): p.predicted_wait_seconds for p in rows}
         s = score_bottleneck(pred_dict, truth_dict, k=10)
         out.append(
             (
@@ -265,9 +274,6 @@ def _rescore_conformance(board: Board, repo_root: Path) -> list[tuple[Entry, dic
 
 
 def _rescore_outcome(board: Board, repo_root: Path) -> list[tuple[Entry, dict]]:
-    import csv
-    import gzip
-
     truth = _outcome_truth_for_dataset(board.dataset)
     truth_keys = [(t.case_id, t.prefix_idx) for t in truth]
     truth_int = [t.outcome for t in truth]
@@ -275,18 +281,12 @@ def _rescore_outcome(board: Board, repo_root: Path) -> list[tuple[Entry, dict]]:
     out: list[tuple[Entry, dict]] = []
     for entry in board.entries:
         pred_path = repo_root / entry.predictions_path
-        opener = gzip.open if str(pred_path).endswith(".gz") else open
-        pred_lookup: dict[tuple[str, int], float] = {}
-        with opener(pred_path, "rt", newline="") as f:
-            reader = csv.DictReader(f)
-            for row in reader:
-                pred_lookup[(row["case_id"], int(row["prefix_idx"]))] = float(row["score"])
+        rows = read_outcome_predictions_csv(str(pred_path))
+        _check_unique_keys(rows, lambda p: (p.case_id, p.prefix_idx), entry.model)
+        pred_lookup = {(p.case_id, p.prefix_idx): p.score for p in rows}
         missing = [k for k in truth_keys if k not in pred_lookup]
         if missing:
-            raise ValueError(
-                f"{entry.model}: predictions missing {len(missing)} target(s); "
-                f"first missing {missing[0]}"
-            )
+            raise _missing_targets_error(entry.model, missing)
         preds = [pred_lookup[k] for k in truth_keys]
         s = score_outcome(preds, truth_int)
         out.append((entry, {"auc": s.auc, "n": s.n, "n_pos": s.n_pos}))
@@ -313,6 +313,15 @@ def verify(board: Board, repo_root: str | Path = ".", *, tol: float = 1e-9) -> l
     """Return a list of human-readable drift messages (empty = clean)."""
     drifts: list[str] = []
     for entry, fresh in rescore(board, repo_root=repo_root):
+        # Catch keys-in-recorded-not-in-fresh: a board with logically-
+        # wrong keys (e.g. `top1` on an outcome entry) used to pass
+        # verify silently because the loop only iterated `fresh`.
+        extra = set(entry.score) - set(fresh)
+        if extra:
+            drifts.append(
+                f"{entry.model}: recorded score has extra key(s) {sorted(extra)} "
+                f"not produced by the {board.task!r} scorer"
+            )
         for k, actual in fresh.items():
             recorded = entry.score.get(k)
             ok = recorded == actual if isinstance(actual, int) else (
@@ -325,11 +334,30 @@ def verify(board: Board, repo_root: str | Path = ".", *, tol: float = 1e-9) -> l
     return drifts
 
 
+# Score keys where lower is better. Everything else either has no
+# direction (counts like `n`, `n_pos`) or is higher-is-better.
+_LOWER_IS_BETTER: frozenset[str] = frozenset({"mae_days"})
+_HIGHER_IS_BETTER: frozenset[str] = frozenset(
+    {"top1", "top3", "auc", "ndcg_at_k", "fscore", "fitness", "precision"}
+)
+
+
+def _direction_for(key: str) -> str | None:
+    if key in _LOWER_IS_BETTER:
+        return "lower_is_better"
+    if key in _HIGHER_IS_BETTER:
+        return "higher_is_better"
+    return None
+
+
 def compare_boards(a: Board, b: Board) -> dict:
     """Return per-model score deltas between two leaderboard snapshots.
 
     Both boards must be on the same (task, dataset). Models matched by
-    name; entries unique to one side are surfaced separately.
+    name; entries unique to one side are surfaced separately. For
+    metrics with a known direction (MAE, AUC, NDCG, etc.), each delta
+    is annotated with `improved: bool` so the consumer doesn't have to
+    remember which way is up.
     """
     if a.task != b.task or a.dataset != b.dataset:
         raise ValueError(
@@ -351,8 +379,25 @@ def compare_boards(a: Board, b: Board) -> dict:
             va = ea.score.get(k)
             vb = eb.score.get(k)
             entry: dict = {"a": va, "b": vb}
-            if isinstance(va, (int, float)) and isinstance(vb, (int, float)):
-                entry["delta"] = vb - va
+            # bool is a subclass of int — exclude it explicitly so a
+            # future score field with `True/False` doesn't get a
+            # nonsensical numeric delta.
+            if (
+                isinstance(va, (int, float))
+                and isinstance(vb, (int, float))
+                and not isinstance(va, bool)
+                and not isinstance(vb, bool)
+            ):
+                delta = vb - va
+                entry["delta"] = delta
+                direction = _direction_for(k)
+                if direction is not None and delta != 0:
+                    entry["direction"] = direction
+                    entry["improved"] = (
+                        delta > 0
+                        if direction == "higher_is_better"
+                        else delta < 0
+                    )
             per_key[k] = entry
         deltas.append({"model": model, "scores": per_key})
 

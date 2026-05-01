@@ -11,7 +11,14 @@ decide whether to print them, fail loudly, or accumulate across files.
 """
 from __future__ import annotations
 
+import re
 from collections.abc import Iterable
+
+# Model names are rendered inside backticks in the markdown standings,
+# go in URLs, and serve as primary keys. Restrict to a safe alphanumeric
+# subset so a model literally named with a backtick can't break the
+# table or escape any rendering context.
+_MODEL_NAME_RE = re.compile(r"^[A-Za-z0-9._-]+$")
 
 VALID_TASKS: set[str] = {
     "next-event",
@@ -20,6 +27,10 @@ VALID_TASKS: set[str] = {
     "bottleneck",
     "conformance",
 }
+
+# The only blessed split convention is case-level chronological. If we
+# ever add k-fold or random splits, this set grows.
+VALID_SPLIT_KINDS: set[str] = {"case-chrono"}
 
 REQUIRED_TOP_KEYS: tuple[str, ...] = (
     "task",
@@ -49,7 +60,16 @@ def validate_board(board: dict) -> list[str]:
         if key not in board:
             errors.append(_err_path("$", f"missing required key {key!r}"))
 
-    if "task" in board and board["task"] not in VALID_TASKS:
+    for key in ("task", "dataset", "metric", "scored_with"):
+        if key in board and not isinstance(board[key], str):
+            errors.append(
+                _err_path(
+                    f"$.{key}",
+                    f"must be a string, got {type(board[key]).__name__}",
+                )
+            )
+
+    if "task" in board and isinstance(board["task"], str) and board["task"] not in VALID_TASKS:
         errors.append(
             _err_path(
                 "$.task",
@@ -62,8 +82,24 @@ def validate_board(board: dict) -> list[str]:
         if not isinstance(board["entries"], list):
             errors.append(_err_path("$.entries", "must be a list"))
         else:
+            seen_models: set[str] = set()
             for i, entry in enumerate(board["entries"]):
                 errors.extend(_validate_entry(entry, i))
+                # Names must be unique per board so standings have a
+                # canonical row per submission. Duplicates almost
+                # always mean the user copy-pasted and forgot to rename.
+                if isinstance(entry, dict):
+                    model = entry.get("model")
+                    if isinstance(model, str):
+                        if model in seen_models:
+                            errors.append(
+                                _err_path(
+                                    f"$.entries[{i}].model",
+                                    f"duplicate model name {model!r} (already "
+                                    "used in an earlier entry)",
+                                )
+                            )
+                        seen_models.add(model)
 
     if "split" in board:
         split = board["split"]
@@ -71,6 +107,21 @@ def validate_board(board: dict) -> list[str]:
             errors.append(_err_path("$.split", "must be an object"))
         elif "kind" not in split:
             errors.append(_err_path("$.split", "missing required key 'kind'"))
+        elif not isinstance(split["kind"], str):
+            errors.append(
+                _err_path(
+                    "$.split.kind",
+                    f"must be a string, got {type(split['kind']).__name__}",
+                )
+            )
+        elif split["kind"] not in VALID_SPLIT_KINDS:
+            errors.append(
+                _err_path(
+                    "$.split.kind",
+                    f"unknown split kind {split['kind']!r}; expected one of "
+                    f"{sorted(VALID_SPLIT_KINDS)!r}",
+                )
+            )
 
     return errors
 
@@ -85,11 +136,90 @@ def _validate_entry(entry: object, idx: int) -> Iterable[str]:
         if key not in entry:
             yield _err_path(base, f"missing required key {key!r}")
 
-    if "score" in entry and not isinstance(entry["score"], dict):
-        yield _err_path(f"{base}.score", "must be an object")
+    if "score" in entry:
+        score = entry["score"]
+        if not isinstance(score, dict):
+            yield _err_path(f"{base}.score", "must be an object")
+        else:
+            # Every score value must be a number — `verify`'s
+            # `math.isclose(recorded, fresh)` raises TypeError if
+            # recorded is a string or list, and the user sees a raw
+            # traceback at the CLI.
+            for k, v in score.items():
+                if not isinstance(v, (int, float)) or isinstance(v, bool):
+                    yield _err_path(
+                        f"{base}.score.{k}",
+                        f"must be a number, got {type(v).__name__}",
+                    )
 
-    if "model" in entry and not isinstance(entry["model"], str):
-        yield _err_path(f"{base}.model", "must be a string")
+    if "version" in entry:
+        version = entry["version"]
+        if not isinstance(version, str) or not version:
+            yield _err_path(
+                f"{base}.version",
+                f"must be a non-empty string, got {type(version).__name__}",
+            )
 
-    if "predictions_path" in entry and not isinstance(entry["predictions_path"], str):
-        yield _err_path(f"{base}.predictions_path", "must be a string")
+    if "scored_at" in entry and entry["scored_at"] is not None:
+        sa = entry["scored_at"]
+        if not isinstance(sa, str):
+            yield _err_path(
+                f"{base}.scored_at",
+                f"must be a string (ISO 8601), got {type(sa).__name__}",
+            )
+        else:
+            # Validate as ISO 8601 — `datetime.fromisoformat` accepts
+            # the full grammar in 3.11+ including trailing Z. We also
+            # require a time component (`T` or space): a bare date
+            # like "2026-04-30" is too coarse to mark a scoring run.
+            from datetime import datetime as _dt
+
+            try:
+                _dt.fromisoformat(sa.replace("Z", "+00:00"))
+            except ValueError:
+                yield _err_path(
+                    f"{base}.scored_at",
+                    f"not a valid ISO 8601 timestamp: {sa!r}",
+                )
+            else:
+                if "T" not in sa and " " not in sa:
+                    yield _err_path(
+                        f"{base}.scored_at",
+                        f"must include a time component (T or space): {sa!r}",
+                    )
+
+    if "model" in entry:
+        model = entry["model"]
+        if not isinstance(model, str):
+            yield _err_path(f"{base}.model", "must be a string")
+        elif not _MODEL_NAME_RE.match(model):
+            yield _err_path(
+                f"{base}.model",
+                f"model name {model!r} must match [A-Za-z0-9._-]+ — names "
+                "render inside markdown backticks and serve as primary keys",
+            )
+
+    if "predictions_path" in entry:
+        pp = entry["predictions_path"]
+        if not isinstance(pp, str):
+            yield _err_path(f"{base}.predictions_path", "must be a string")
+        elif not pp.strip():
+            yield _err_path(
+                f"{base}.predictions_path",
+                "must be a non-empty path",
+            )
+        else:
+            # Reject absolute paths and `..` traversal: the leaderboard
+            # JSON is checked into a repo, so predictions live alongside
+            # it. Allowing arbitrary filesystem paths would let a
+            # malicious entry trigger reads of files outside the repo.
+            if pp.startswith("/") or pp.startswith("\\") or len(pp) >= 2 and pp[1] == ":":
+                yield _err_path(
+                    f"{base}.predictions_path",
+                    f"must be a relative path; got absolute {pp!r}",
+                )
+            elif ".." in pp.replace("\\", "/").split("/"):
+                yield _err_path(
+                    f"{base}.predictions_path",
+                    f"must not traverse with `..`; got {pp!r}",
+                )

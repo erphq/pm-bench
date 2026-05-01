@@ -55,3 +55,33 @@ def test_round_trip_csv(tmp_path) -> None:
     assert n == 2
     back = read_prefixes_csv(str(path))
     assert back == prefixes
+
+
+def test_write_prefixes_csv_rejects_pipe_in_activity(tmp_path) -> None:
+    """The `|` separator must not appear in any activity name —
+    silently corrupting the round-trip is the worst outcome."""
+    import pytest as _pytest
+
+    bad = [Prefix(case_id="c1", prefix_idx=1, prefix=("a|b",), true_next="c")]
+    with _pytest.raises(ValueError, match="separator"):
+        write_prefixes_csv(bad, str(tmp_path / "x.csv"))
+
+
+def test_write_prefixes_csv_rejects_empty_activity(tmp_path) -> None:
+    """Empty-string activity is the encoding's 'no activities' sentinel
+    on read — writing it would silently lose the activity."""
+    import pytest as _pytest
+
+    bad = [Prefix(case_id="c1", prefix_idx=1, prefix=("",), true_next="c")]
+    with _pytest.raises(ValueError, match="empty string"):
+        write_prefixes_csv(bad, str(tmp_path / "x.csv"))
+
+
+def test_extract_prefixes_rejects_mixed_type_case_ids() -> None:
+    """Mixed int/str case_ids would break sorted iteration; surface clearly."""
+    import pytest as _pytest
+
+    base = dt.datetime(2024, 1, 1)
+    events = [(1, "a", base), ("c2", "b", base)]
+    with _pytest.raises(TypeError, match="same type"):
+        list(extract_prefixes(events, [1, "c2"]))
