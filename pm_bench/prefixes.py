@@ -19,12 +19,18 @@ prefix to end of case), and the file has columns:
 
     case_id,prefix_idx,remaining_days
 
-— shape parallels the next-event format so models that handle both
-tasks share most of the loader.
+For outcome, the truth is a binary integer (the case's final 0/1
+outcome, repeated for every prefix of that case so predictions can
+condition on prefix length):
+
+    case_id,prefix_idx,outcome
+
+— all three formats share `case_id, prefix_idx` so models that handle
+multiple tasks share most of the loader.
 """
 from __future__ import annotations
 
-from collections.abc import Iterable, Iterator
+from collections.abc import Callable, Iterable, Iterator
 from dataclasses import dataclass
 from datetime import datetime
 
@@ -54,6 +60,21 @@ class TimeTarget:
     case_id: CaseId
     prefix_idx: int
     remaining_days: float
+
+
+@dataclass(frozen=True)
+class OutcomeTarget:
+    """Binary outcome prediction target.
+
+    `outcome` is the case's final 0/1 outcome — defined per-dataset
+    (synthetic-toy: 1 iff the case ends with `delivery_confirmed`).
+    The same value is repeated across every prefix of a case so a model
+    can score how its prediction sharpens as the prefix grows.
+    """
+
+    case_id: CaseId
+    prefix_idx: int
+    outcome: int
 
 
 def extract_prefixes(
@@ -155,6 +176,69 @@ def extract_remaining_time_targets(
                 prefix_idx=k,
                 remaining_days=remaining,
             )
+
+
+def extract_outcome_targets(
+    events: Iterable[Event],
+    case_ids: Iterable[CaseId],
+    is_positive: Callable[[list[Activity]], bool],
+) -> Iterator[OutcomeTarget]:
+    """Yield outcome targets for the given case ids.
+
+    `is_positive` is the per-dataset rule that decides a case's outcome
+    from its full activity sequence (in chronological order). Targets
+    are emitted at every prefix length 1..L-1, all carrying the same
+    case-level outcome — so a model predicts the same target with
+    progressively more context.
+    """
+    keep = set(case_ids)
+    by_case: dict[CaseId, list[tuple[Activity, datetime]]] = {}
+    for case_id, activity, ts in events:
+        if case_id not in keep:
+            continue
+        by_case.setdefault(case_id, []).append((activity, ts))
+
+    for case_id in keep:
+        rows = by_case.get(case_id)
+        if not rows or len(rows) < 2:
+            continue
+        rows.sort(key=lambda r: r[1])
+        activities = [a for a, _ in rows]
+        outcome = 1 if is_positive(activities) else 0
+        for k in range(1, len(activities)):
+            yield OutcomeTarget(case_id=case_id, prefix_idx=k, outcome=outcome)
+
+
+def write_outcome_targets_csv(targets: Iterable[OutcomeTarget], path: str) -> int:
+    """Write outcome targets to a CSV file. Returns the number of rows."""
+    import csv
+
+    n = 0
+    with open(path, "w", newline="") as f:
+        w = csv.writer(f)
+        w.writerow(["case_id", "prefix_idx", "outcome"])
+        for t in targets:
+            w.writerow([t.case_id, t.prefix_idx, t.outcome])
+            n += 1
+    return n
+
+
+def read_outcome_targets_csv(path: str) -> list[OutcomeTarget]:
+    """Read an outcome-targets CSV emitted by `write_outcome_targets_csv`."""
+    import csv
+
+    out: list[OutcomeTarget] = []
+    with open(path, newline="") as f:
+        r = csv.DictReader(f)
+        for row in r:
+            out.append(
+                OutcomeTarget(
+                    case_id=row["case_id"],
+                    prefix_idx=int(row["prefix_idx"]),
+                    outcome=int(row["outcome"]),
+                )
+            )
+    return out
 
 
 def write_time_targets_csv(targets: Iterable[TimeTarget], path: str) -> int:

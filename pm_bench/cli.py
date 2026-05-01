@@ -14,6 +14,12 @@ from pm_bench.baselines.mean_time import (
     read_time_predictions_csv,
     write_time_predictions_csv,
 )
+from pm_bench.baselines.prior_outcome import (
+    fit_prior_outcome,
+    predict_prior_outcome,
+    read_outcome_predictions_csv,
+    write_outcome_predictions_csv,
+)
 from pm_bench.fetch import (
     FetchError,
     ManualFetchRequired,
@@ -23,15 +29,18 @@ from pm_bench.fetch import (
 from pm_bench.leaderboard import load_board, standings, verify
 from pm_bench.predictions import read_predictions_csv, write_predictions_csv
 from pm_bench.prefixes import (
+    extract_outcome_targets,
     extract_prefixes,
     extract_remaining_time_targets,
+    read_outcome_targets_csv,
     read_prefixes_csv,
     read_time_targets_csv,
+    write_outcome_targets_csv,
     write_prefixes_csv,
     write_time_targets_csv,
 )
 from pm_bench.registry import get_dataset, load_registry
-from pm_bench.score import score_next_event, score_remaining_time
+from pm_bench.score import score_next_event, score_outcome, score_remaining_time
 from pm_bench.split import case_chrono_split
 
 
@@ -48,6 +57,16 @@ def _load_events(name: str) -> list:
         )
         sys.exit(1)
     return list(_synth.synthetic_log())
+
+
+def _outcome_rule(name: str):
+    """Return the per-dataset positive-outcome predicate."""
+    if name == "synthetic-toy":
+        return _synth.is_positive_outcome
+    raise click.UsageError(
+        f"outcome rule for {name!r} not yet defined; pin a dataset hash and "
+        "register its outcome rule"
+    )
 
 
 @click.group()
@@ -203,7 +222,7 @@ def split(name: str, task: str) -> None:
 )
 @click.option(
     "--task",
-    type=click.Choice(["next-event", "remaining-time"]),
+    type=click.Choice(["next-event", "remaining-time", "outcome"]),
     default="next-event",
     show_default=True,
 )
@@ -220,9 +239,14 @@ def prefixes(name: str, split_path: str, out_path: str, partition: str, task: st
     case_ids = split_data[partition]
     if task == "next-event":
         n = write_prefixes_csv(extract_prefixes(events, case_ids), out_path)
-    else:
+    elif task == "remaining-time":
         n = write_time_targets_csv(
             extract_remaining_time_targets(events, case_ids), out_path
+        )
+    else:
+        rule = _outcome_rule(name)
+        n = write_outcome_targets_csv(
+            extract_outcome_targets(events, case_ids, rule), out_path
         )
     click.echo(f"wrote {n} prefixes to {out_path} (task={task} partition={partition})")
 
@@ -250,14 +274,14 @@ def prefixes(name: str, split_path: str, out_path: str, partition: str, task: st
 )
 @click.option(
     "--baseline",
-    type=click.Choice(["markov", "mean"]),
+    type=click.Choice(["markov", "mean", "prior"]),
     default="markov",
     show_default=True,
-    help="markov → next-event; mean → remaining-time.",
+    help="markov → next-event; mean → remaining-time; prior → outcome.",
 )
 @click.option(
     "--task",
-    type=click.Choice(["next-event", "remaining-time"]),
+    type=click.Choice(["next-event", "remaining-time", "outcome"]),
     default="next-event",
     show_default=True,
 )
@@ -281,13 +305,27 @@ def predict(
         targets = read_prefixes_csv(prefixes_path)
         preds = predict_markov(model, targets)
         n = write_predictions_csv(preds, out_path)
-    else:
+    elif task == "remaining-time":
         if baseline != "mean":
             raise click.UsageError(f"baseline {baseline!r} doesn't apply to remaining-time")
         time_model = fit_mean_time(events, split_data["train"])
         time_targets = read_time_targets_csv(prefixes_path)
         time_preds = predict_mean_time(time_model, time_targets)
         n = write_time_predictions_csv(time_preds, out_path)
+    else:
+        # outcome
+        if baseline != "prior":
+            raise click.UsageError(f"baseline {baseline!r} doesn't apply to outcome")
+        rule = _outcome_rule(name)
+        outcome_model = fit_prior_outcome(events, split_data["train"], rule)
+        outcome_targets = read_outcome_targets_csv(prefixes_path)
+        # Build full activity sequences keyed by case_id so the baseline
+        # can read off each prefix's last activity.
+        seq_by_case: dict[str, list[str]] = {}
+        for cid, act, _ts in sorted(events, key=lambda e: e[2]):
+            seq_by_case.setdefault(cid, []).append(act)
+        outcome_preds = predict_prior_outcome(outcome_model, outcome_targets, seq_by_case)
+        n = write_outcome_predictions_csv(outcome_preds, out_path)
     click.echo(f"wrote {n} predictions to {out_path} (task={task} baseline={baseline})")
 
 
@@ -302,7 +340,7 @@ def predict(
 )
 @click.option(
     "--task",
-    type=click.Choice(["next-event", "remaining-time"]),
+    type=click.Choice(["next-event", "remaining-time", "outcome"]),
     default="next-event",
     show_default=True,
 )
@@ -335,14 +373,40 @@ def score(predictions_path: str, prefixes_path: str, task: str) -> None:
         )
         return
 
-    # remaining-time
-    truth_time = read_time_targets_csv(prefixes_path)
-    pred_time = read_time_predictions_csv(predictions_path)
-    pred_t_lookup = {(p.case_id, p.prefix_idx): p.predicted_days for p in pred_time}
+    if task == "remaining-time":
+        truth_time = read_time_targets_csv(prefixes_path)
+        pred_time = read_time_predictions_csv(predictions_path)
+        pred_t_lookup = {(p.case_id, p.prefix_idx): p.predicted_days for p in pred_time}
+        missing = [
+            (t.case_id, t.prefix_idx)
+            for t in truth_time
+            if (t.case_id, t.prefix_idx) not in pred_t_lookup
+        ]
+        if missing:
+            click.echo(
+                f"predictions is missing {len(missing)} target(s); first: {missing[0]}",
+                err=True,
+            )
+            sys.exit(2)
+        preds_floats = [pred_t_lookup[(t.case_id, t.prefix_idx)] for t in truth_time]
+        truth_floats = [t.remaining_days for t in truth_time]
+        rt = score_remaining_time(preds_floats, truth_floats)
+        click.echo(
+            json.dumps(
+                {"task": task, "mae_days": rt.mae_days, "n": rt.n},
+                indent=2,
+            ),
+        )
+        return
+
+    # outcome
+    truth_o = read_outcome_targets_csv(prefixes_path)
+    pred_o = read_outcome_predictions_csv(predictions_path)
+    pred_o_lookup = {(p.case_id, p.prefix_idx): p.score for p in pred_o}
     missing = [
         (t.case_id, t.prefix_idx)
-        for t in truth_time
-        if (t.case_id, t.prefix_idx) not in pred_t_lookup
+        for t in truth_o
+        if (t.case_id, t.prefix_idx) not in pred_o_lookup
     ]
     if missing:
         click.echo(
@@ -350,12 +414,12 @@ def score(predictions_path: str, prefixes_path: str, task: str) -> None:
             err=True,
         )
         sys.exit(2)
-    preds_floats = [pred_t_lookup[(t.case_id, t.prefix_idx)] for t in truth_time]
-    truth_floats = [t.remaining_days for t in truth_time]
-    rt = score_remaining_time(preds_floats, truth_floats)
+    preds_o = [pred_o_lookup[(t.case_id, t.prefix_idx)] for t in truth_o]
+    truth_o_int = [t.outcome for t in truth_o]
+    os_ = score_outcome(preds_o, truth_o_int)
     click.echo(
         json.dumps(
-            {"task": task, "mae_days": rt.mae_days, "n": rt.n},
+            {"task": task, "auc": os_.auc, "n": os_.n, "n_pos": os_.n_pos},
             indent=2,
         ),
     )

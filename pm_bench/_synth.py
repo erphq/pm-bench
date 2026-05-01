@@ -48,3 +48,13 @@ def synthetic_log(n_cases: int = 50, seed: int = 42) -> Iterator[Event]:
         for activity in path:
             yield (str(case_id), activity, t)
             t += dt.timedelta(hours=rng.randint(1, 48))
+
+
+def is_positive_outcome(activities: list[str]) -> bool:
+    """Synthetic-toy outcome rule: case ends with `delivery_confirmed`.
+
+    This corresponds to the happy path (PATHS[4]) — a fully delivered
+    order. Cancelled, refunded, and shipped-but-unconfirmed cases are
+    all negative.
+    """
+    return bool(activities) and activities[-1] == "delivery_confirmed"

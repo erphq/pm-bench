@@ -60,6 +60,22 @@ pm-bench fetch bpi2020 --pin
 
 ## Recently shipped
 
+- **Outcome task (binary AUC)** (`outcome-task` branch).
+  - `score_outcome` — pure-CPython rank-sum AUC, with average-rank
+    tie-breaking; degenerate single-class case returns 0.5 by
+    convention rather than NaN.
+  - `pm_bench/baselines/prior_outcome.py` — last-activity-conditioned
+    positive rate (with global-rate fallback for unseen activities).
+    The dumbest baseline that uses *any* prefix signal.
+  - CLI: `--task outcome`, `--baseline prior`, end-to-end through
+    `prefixes / predict / score`.
+  - Per-dataset outcome rule registered for synthetic-toy
+    (`is_positive_outcome`: case ends with `delivery_confirmed`).
+  - **No leaderboard entry yet** — synthetic-toy with seed=42 happens
+    to have zero positives in the test partition, so AUC degenerates.
+    The pipeline runs end-to-end and the test asserts it; a real
+    leaderboard entry waits on a pinned BPI dataset.
+  - 8 new tests; 73 total, ruff clean.
 - **Remaining-time task** (`remaining-time` branch).
   - `score_remaining_time` (MAE in days), prefixes/predictions
     formats parallel to next-event so models share a loader.
