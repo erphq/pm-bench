@@ -167,6 +167,18 @@ def _load_split(path: str) -> dict:
             err=True,
         )
         sys.exit(2)
+    # Each partition must be a list of case_ids. Without this check, a
+    # split with `"train": "c1"` (string) would silently iterate as
+    # individual characters when fed to set(), producing surprising
+    # downstream behaviour.
+    for k in _SPLIT_REQUIRED_KEYS:
+        if not isinstance(data[k], list):
+            click.echo(
+                f"{path}: split.{k} must be a JSON array, got "
+                f"{type(data[k]).__name__}",
+                err=True,
+            )
+            sys.exit(2)
     return data
 
 
@@ -188,8 +200,12 @@ def cmd_list() -> None:
 @click.argument("name")
 def info(name: str) -> None:
     """Show details for a dataset."""
+    # `info synthetic-toy@99` should resolve to the base entry — every
+    # other verb accepts the @<seed> suffix and this one was the
+    # outlier. Strip the suffix before the registry lookup.
+    lookup_name = name.split("@", 1)[0] if "@" in name else name
     try:
-        d = get_dataset(name)
+        d = get_dataset(lookup_name)
     except KeyError:
         click.echo(f"unknown dataset: {name}", err=True)
         sys.exit(1)
@@ -319,25 +335,20 @@ def stats(name: str, top_n: int) -> None:
 
 @main.command()
 @click.argument("name")
-@click.option(
-    "--task",
-    type=click.Choice(
-        ["next-event", "remaining-time", "outcome", "bottleneck", "conformance"]
-    ),
-    default="next-event",
-    show_default=True,
-)
-def split(name: str, task: str) -> None:
+def split(name: str) -> None:
     """Produce a train/val/test split for a dataset.
 
-    v0 supports `synthetic-toy` only; other datasets require manual fetch.
+    The split is task-agnostic — every task (next-event, remaining-time,
+    outcome, bottleneck, conformance) shares the same case-level
+    chronological partition, which is the whole point of pm-bench. So
+    this command takes no `--task`; downstream commands (`prefixes`,
+    `predict`, `discover`) decide the task.
     """
     events = _load_events(name)
     s = case_chrono_split(events)
     click.echo(
         json.dumps(
             {
-                "task": task,
                 "dataset": name,
                 "sizes": {"train": len(s.train), "val": len(s.val), "test": len(s.test)},
                 "train": s.train,

@@ -60,6 +60,31 @@ pm-bench fetch bpi2020 --pin
 
 ## Recently shipped
 
+- **Round-8 cleanup** (`round8-fixes` branch). 7 more bugs from a
+  fresh agent-led audit:
+  - **R30**: `read_prefixes_csv` and `read_predictions_csv` only
+    stripped `case_id` whitespace; `true_next` and the activity
+    elements of `prefix` / `ranked` were read raw. Padded values
+    silently scored 0. Now uniformly stripped.
+  - **R31**: `pm-bench info synthetic-toy@99` failed as "unknown
+    dataset" — the only verb that didn't accept the `@<seed>`
+    suffix. Now resolves to the base entry.
+  - **R32**: `read_model_json` (conformance submissions) didn't
+    accept `.json.gz`, but the schema didn't restrict the extension.
+    A leaderboard entry pointing at `model.json.gz` would pass schema
+    and then UTF-8-decode-error on the gzip bytes. Now `.gz`-aware.
+  - **R33**: schema accepted non-string `version` and `scored_at`.
+    Now type-checked.
+  - **R34**: schema accepted non-numeric values inside `score`
+    (e.g. `"top1": "0.5"`), which then crashed `math.isclose` at
+    verify time. Now every score value must be `int|float`.
+  - **R35**: `pm-bench split --task <task>` stamped a `task` field
+    into the JSON that nothing read. Removed the `--task` flag and
+    the field — the split is task-agnostic by design.
+  - **R36**: `_load_split` validated key presence but not type. A
+    `"train": "c1"` (string) would silently iterate as characters.
+    Now requires lists.
+  - 11 new tests; 215 total, ruff clean.
 - **Round-7 cleanup** (`round7-baseline-tests` branch).
   - **Robustness gap from round 6**: 4 baseline functions
     (`fit_uniform`, `predict_zero_time`, `fit_global_rate` /

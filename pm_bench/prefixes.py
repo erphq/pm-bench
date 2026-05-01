@@ -170,13 +170,20 @@ def read_prefixes_csv(path: str) -> list[Prefix]:
         r = csv.DictReader(f)
         for row in r:
             prefix_str = row["prefix"]
-            prefix = tuple(prefix_str.split(PREFIX_SEP)) if prefix_str else ()
+            # Strip every activity in the prefix list — same invariant
+            # as case_id stripping. Mirrors the writer guarantee that no
+            # padded values ever leave pm-bench.
+            prefix = (
+                tuple(s.strip() for s in prefix_str.split(PREFIX_SEP))
+                if prefix_str
+                else ()
+            )
             out.append(
                 Prefix(
                     case_id=row["case_id"].strip(),
                     prefix_idx=int(row["prefix_idx"]),
                     prefix=prefix,
-                    true_next=row["true_next"],
+                    true_next=row["true_next"].strip(),
                 )
             )
     return out

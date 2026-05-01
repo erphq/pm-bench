@@ -57,7 +57,7 @@ def write_model_json(transitions: Iterable[tuple[Activity, Activity]], path: str
 
 
 def read_model_json(path: str | Path) -> set[tuple[Activity, Activity]]:
-    """Read a submission model JSON into a set of (a, b) pairs.
+    """Read a submission model JSON into a set of (a, b) pairs (plain or `.gz`).
 
     Tolerates duplicates and any order. Raises ValueError if the JSON
     is missing the `transitions` key or any pair is not a 2-tuple of
@@ -65,7 +65,18 @@ def read_model_json(path: str | Path) -> set[tuple[Activity, Activity]]:
     the truth DFG (also string-keyed) and the user would see an
     unexplained `fitness=0`.
     """
-    raw = json.loads(Path(path).read_text(encoding="utf-8-sig"))
+    p = Path(path)
+    # Match the rest of pm-bench's I/O: `.gz` is transparent. Without
+    # this, a leaderboard entry whose `predictions_path` points at
+    # `model.json.gz` passes schema (no extension restriction) and
+    # then blows up with a UTF-8 decode of raw gzip bytes at verify.
+    if str(p).endswith(".gz"):
+        import gzip
+
+        with gzip.open(p, "rt", encoding="utf-8-sig") as f:
+            raw = json.load(f)
+    else:
+        raw = json.loads(p.read_text(encoding="utf-8-sig"))
     if not isinstance(raw, dict) or "transitions" not in raw:
         raise ValueError(f"{path}: model JSON must have a top-level 'transitions' key")
     pairs = raw["transitions"]

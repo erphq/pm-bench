@@ -108,6 +108,18 @@ def test_read_model_json_rejects_non_string_pair_elements(tmp_path: Path) -> Non
         read_model_json(p)
 
 
+def test_read_model_json_handles_gzipped_file(tmp_path: Path) -> None:
+    """`.json.gz` round-trip — leaderboard entry could plausibly point
+    at a gzipped model and the verify path must read it."""
+    import gzip
+
+    p = tmp_path / "model.json.gz"
+    with gzip.open(p, "wt", encoding="utf-8") as f:
+        f.write(json.dumps({"transitions": [["a", "b"], ["b", "c"]]}))
+    out = read_model_json(p)
+    assert out == {("a", "b"), ("b", "c")}
+
+
 def test_conformance_board_verifies() -> None:
     board = load_board(CONFORMANCE_BOARD)
     drifts = verify(board, repo_root=REPO_ROOT)

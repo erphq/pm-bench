@@ -136,8 +136,37 @@ def _validate_entry(entry: object, idx: int) -> Iterable[str]:
         if key not in entry:
             yield _err_path(base, f"missing required key {key!r}")
 
-    if "score" in entry and not isinstance(entry["score"], dict):
-        yield _err_path(f"{base}.score", "must be an object")
+    if "score" in entry:
+        score = entry["score"]
+        if not isinstance(score, dict):
+            yield _err_path(f"{base}.score", "must be an object")
+        else:
+            # Every score value must be a number — `verify`'s
+            # `math.isclose(recorded, fresh)` raises TypeError if
+            # recorded is a string or list, and the user sees a raw
+            # traceback at the CLI.
+            for k, v in score.items():
+                if not isinstance(v, (int, float)) or isinstance(v, bool):
+                    yield _err_path(
+                        f"{base}.score.{k}",
+                        f"must be a number, got {type(v).__name__}",
+                    )
+
+    if "version" in entry:
+        version = entry["version"]
+        if not isinstance(version, str) or not version:
+            yield _err_path(
+                f"{base}.version",
+                f"must be a non-empty string, got {type(version).__name__}",
+            )
+
+    if "scored_at" in entry and entry["scored_at"] is not None:
+        sa = entry["scored_at"]
+        if not isinstance(sa, str):
+            yield _err_path(
+                f"{base}.scored_at",
+                f"must be a string (ISO 8601), got {type(sa).__name__}",
+            )
 
     if "model" in entry:
         model = entry["model"]

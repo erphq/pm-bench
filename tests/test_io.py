@@ -160,12 +160,84 @@ def test_predictions_csv_strips_case_id_whitespace(tmp_path: Path) -> None:
     assert rows[1].case_id == "c2"
 
 
-def test_split_task_flag_rejects_unknown_task() -> None:
-    """`split --task bogus` must error rather than stamping the JSON."""
+def test_split_no_longer_takes_task_flag() -> None:
+    """The split is task-agnostic; `--task` was removed in round 8."""
     runner = CliRunner()
-    r = runner.invoke(main, ["split", "synthetic-toy", "--task", "bogus"])
+    r = runner.invoke(main, ["split", "synthetic-toy", "--task", "next-event"])
     assert r.exit_code != 0
-    assert "Invalid value" in r.output or "bogus" in r.output
+    assert "No such option" in r.output
+
+
+def test_split_output_omits_task_field() -> None:
+    """Round-8 cleanup dropped the unused `task` field from split.json."""
+    import json as _json
+
+    runner = CliRunner()
+    r = runner.invoke(main, ["split", "synthetic-toy"])
+    assert r.exit_code == 0
+    data = _json.loads(r.output)
+    assert "task" not in data
+    assert {"dataset", "sizes", "train", "val", "test"}.issubset(data.keys())
+
+
+def test_info_accepts_synthetic_seed_suffix() -> None:
+    """`info synthetic-toy@99` must resolve to the base entry like
+    every other CLI verb does."""
+    import json as _json
+
+    runner = CliRunner()
+    r = runner.invoke(main, ["info", "synthetic-toy@99"])
+    assert r.exit_code == 0, r.output
+    data = _json.loads(r.output)
+    assert data["name"] == "synthetic-toy"
+
+
+def test_predictions_csv_strips_ranked_activity_whitespace(tmp_path: Path) -> None:
+    """A spreadsheet-padded ranked activity must round-trip clean
+    against an unpadded truth file."""
+    from pm_bench.predictions import read_predictions_csv
+
+    p = tmp_path / "preds.csv"
+    p.write_text(
+        "case_id,prefix_idx,predictions\n"
+        "c1,1, payment_pending |cancelled\n"
+    )
+    rows = read_predictions_csv(str(p))
+    assert rows[0].ranked == ("payment_pending", "cancelled")
+
+
+def test_prefixes_csv_strips_true_next_and_prefix(tmp_path: Path) -> None:
+    """Same invariant for the truth file readers."""
+    from pm_bench.prefixes import read_prefixes_csv
+
+    p = tmp_path / "p.csv"
+    p.write_text(
+        "case_id,prefix_idx,prefix,true_next\n"
+        "c1,2, a | b , c \n"
+    )
+    rows = read_prefixes_csv(str(p))
+    assert rows[0].prefix == ("a", "b")
+    assert rows[0].true_next == "c"
+
+
+def test_load_split_rejects_non_list_partitions(tmp_path: Path) -> None:
+    """A split.json with `train: "c1"` (string) would silently iterate
+    as characters when fed to set(case_ids). Reject up front."""
+    import json as _json
+
+    bad = tmp_path / "split.json"
+    bad.write_text(_json.dumps({"train": "c1", "val": [], "test": []}))
+    runner = CliRunner()
+    r = runner.invoke(
+        main,
+        [
+            "prefixes", "synthetic-toy",
+            "--split", str(bad),
+            "--out", str(tmp_path / "x.csv"),
+        ],
+    )
+    assert r.exit_code == 2
+    assert "must be a JSON array" in r.output
 
 
 def test_fetch_accepts_synthetic_seed_suffix() -> None:

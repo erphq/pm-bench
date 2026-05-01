@@ -139,6 +139,68 @@ def test_unknown_split_kind_rejected() -> None:
     assert any("unknown split kind" in e for e in errors)
 
 
+def test_score_value_must_be_numeric() -> None:
+    """`"top1": "0.5"` would crash math.isclose at verify time."""
+    bad = {
+        "task": "next-event",
+        "dataset": "x",
+        "metric": "m",
+        "scored_with": "z",
+        "split": {"kind": "case-chrono"},
+        "entries": [
+            {
+                "model": "m",
+                "version": "1",
+                "predictions_path": "p",
+                "score": {"top1": "0.5"},
+            }
+        ],
+    }
+    errors = validate_board(bad)
+    assert any("must be a number" in e and "top1" in e for e in errors)
+
+
+def test_version_must_be_non_empty_string() -> None:
+    bad = {
+        "task": "next-event",
+        "dataset": "x",
+        "metric": "m",
+        "scored_with": "z",
+        "split": {"kind": "case-chrono"},
+        "entries": [
+            {
+                "model": "m",
+                "version": 1,  # int, not string
+                "predictions_path": "p",
+                "score": {},
+            }
+        ],
+    }
+    errors = validate_board(bad)
+    assert any("version" in e and "non-empty string" in e for e in errors)
+
+
+def test_scored_at_when_present_must_be_string() -> None:
+    bad = {
+        "task": "next-event",
+        "dataset": "x",
+        "metric": "m",
+        "scored_with": "z",
+        "split": {"kind": "case-chrono"},
+        "entries": [
+            {
+                "model": "m",
+                "version": "1",
+                "predictions_path": "p",
+                "score": {},
+                "scored_at": 12345,  # int instead of ISO 8601 string
+            }
+        ],
+    }
+    errors = validate_board(bad)
+    assert any("scored_at" in e and "string" in e for e in errors)
+
+
 def test_traversing_predictions_path_rejected() -> None:
     """`../` in predictions_path could escape the repo."""
     bad = {

@@ -97,7 +97,14 @@ def read_predictions_csv(path: str) -> list[Prediction]:
         r = csv.DictReader(f)
         for row in r:
             ranked_str = row["predictions"]
-            ranked = tuple(ranked_str.split(PREFIX_SEP)) if ranked_str else ()
+            # Strip every ranked-list activity. A spreadsheet-padded
+            # ` payment_pending` would otherwise miss the truth's
+            # `payment_pending`, silently scoring 0.
+            ranked = (
+                tuple(s.strip() for s in ranked_str.split(PREFIX_SEP))
+                if ranked_str
+                else ()
+            )
             out.append(
                 Prediction(
                     case_id=row["case_id"].strip(),
