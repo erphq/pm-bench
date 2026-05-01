@@ -20,8 +20,11 @@ Be the default benchmark for new process-mining methods. Within 18 months,
   shipped (`leaderboard/next-event/synthetic-toy.json`)
 - `pm-bench leaderboard --verify` re-scores entries to catch drift; a
   test guards the Markov-ref score
-- Remaining: CI workflow that re-scores submission PRs (URL- or
-  in-repo-predictions flow)
+- CI workflow shipped: `.github/workflows/leaderboard.yml` runs
+  `pm-bench leaderboard --all --verify` on every PR / push that
+  touches scoring code or standings files
+- Remaining: static landing page (HTML / index page on a tag) and the
+  URL-fetch submission flow for entries whose predictions live offsite
 
 ## v1 success criteria
 - ≥3 external groups submit to the leaderboard

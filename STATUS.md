@@ -60,6 +60,15 @@ pm-bench fetch bpi2020 --pin
 
 ## Recently shipped
 
+- **Leaderboard CI workflow** (`leaderboard-ci` branch).
+  - `pm-bench leaderboard --all [--verify]` walks every standings
+    file under `leaderboard/` so contributors and CI run the same
+    one command.
+  - `.github/workflows/leaderboard.yml` runs that command on every
+    push / PR that touches `leaderboard/` or `pm_bench/`. Drift in
+    any standings file blocks merge with its own dedicated check.
+  - 2 new tests cover the `--all` path on both clean and tampered
+    trees. 47 total.
 - **Leaderboard scaffold** (`leaderboard-scaffold` branch).
   - `leaderboard/next-event/synthetic-toy.json` with the Markov
     reference entry; predictions checked in under

@@ -1,0 +1,33 @@
+name: leaderboard
+
+# Runs on every PR / push that touches scoring code or the standings
+# files. Walks every leaderboard/<task>/<dataset>.json and re-runs
+# scoring against the checked-in predictions; fails non-zero on any
+# drift. The job appears as its own check so a tampered (or stale)
+# entry blocks merge without burying inside the wider pytest run.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "leaderboard/**"
+      - "pm_bench/**"
+      - ".github/workflows/leaderboard.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "leaderboard/**"
+      - "pm_bench/**"
+      - ".github/workflows/leaderboard.yml"
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -e ".[dev]"
+      - name: verify all leaderboards
+        run: pm-bench leaderboard --all --verify

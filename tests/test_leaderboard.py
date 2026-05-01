@@ -73,6 +73,41 @@ def test_cli_leaderboard_verify_passes() -> None:
     assert "no drift" in r.output
 
 
+def test_cli_leaderboard_all_verify_passes() -> None:
+    """`pm-bench leaderboard --all --verify` walks every board and exits 0."""
+    runner = CliRunner()
+    r = runner.invoke(
+        main,
+        ["leaderboard", "--all", "--verify", "--repo-root", str(REPO_ROOT)],
+    )
+    assert r.exit_code == 0, r.output
+    assert "next-event/synthetic-toy: OK" in r.output
+
+
+def test_cli_leaderboard_all_detects_drift(tmp_path) -> None:
+    """A fake leaderboard tree with a tampered score must fail --all --verify."""
+    import shutil
+
+    # Mirror the real repo layout in tmp_path so predictions still resolve.
+    src_lb = REPO_ROOT / "leaderboard"
+    dst_lb = tmp_path / "leaderboard"
+    shutil.copytree(src_lb, dst_lb)
+
+    # Tamper with the synthetic-toy entry's score.
+    target = dst_lb / "next-event" / "synthetic-toy.json"
+    raw = json.loads(target.read_text())
+    raw["entries"][0]["score"]["top1"] = 0.111
+    target.write_text(json.dumps(raw))
+
+    runner = CliRunner()
+    r = runner.invoke(
+        main,
+        ["leaderboard", "--all", "--verify", "--repo-root", str(tmp_path)],
+    )
+    assert r.exit_code == 2, r.output
+    assert "DRIFT" in r.output
+
+
 def test_cli_leaderboard_missing_returns_nonzero(tmp_path) -> None:
     """Asking for a nonexistent (task, dataset) pair must error cleanly."""
     # Lay out a partial repo with no leaderboard file.

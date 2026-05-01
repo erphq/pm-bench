@@ -292,8 +292,8 @@ def score(predictions_path: str, prefixes_path: str, task: str) -> None:
 
 
 @main.command()
-@click.argument("task")
-@click.argument("dataset")
+@click.argument("task", required=False)
+@click.argument("dataset", required=False)
 @click.option(
     "--verify",
     "do_verify",
@@ -302,14 +302,59 @@ def score(predictions_path: str, prefixes_path: str, task: str) -> None:
     help="Re-score every entry and fail if recorded scores have drifted.",
 )
 @click.option(
+    "--all",
+    "do_all",
+    is_flag=True,
+    default=False,
+    help="Walk every leaderboard/<task>/<dataset>.json and verify each.",
+)
+@click.option(
     "--repo-root",
     type=click.Path(exists=True, file_okay=False),
     default=".",
     show_default=True,
     help="Repo root that `predictions_path` entries are relative to.",
 )
-def leaderboard(task: str, dataset: str, do_verify: bool, repo_root: str) -> None:
-    """Print standings for a (task, dataset) pair, optionally rescoring."""
+def leaderboard(
+    task: str | None,
+    dataset: str | None,
+    do_verify: bool,
+    do_all: bool,
+    repo_root: str,
+) -> None:
+    """Print standings for a (task, dataset) pair, optionally rescoring.
+
+    With `--all`, walks every standings file under `leaderboard/` —
+    the lever CI pulls to verify the full repo in one go.
+    """
+    if do_all:
+        from pathlib import Path
+
+        root = Path(repo_root) / "leaderboard"
+        files = sorted(root.glob("*/*.json"))
+        if not files:
+            click.echo(f"no leaderboard files under {root}", err=True)
+            sys.exit(1)
+        any_drift = False
+        for f in files:
+            try:
+                board = load_board(f)
+            except (KeyError, ValueError) as exc:
+                click.echo(f"{f.relative_to(repo_root)}: malformed — {exc}", err=True)
+                any_drift = True
+                continue
+            drifts = verify(board, repo_root=repo_root) if do_verify else []
+            tag = "OK" if not drifts else f"DRIFT ({len(drifts)})"
+            click.echo(f"{board.task}/{board.dataset}: {tag} — {len(board.entries)} entry(ies)")
+            for d in drifts:
+                click.echo(f"  {d}", err=True)
+                any_drift = True
+        sys.exit(2 if any_drift else 0)
+
+    if not task or not dataset:
+        click.echo("usage: pm-bench leaderboard <task> <dataset> [--verify]  OR  --all", err=True)
+        sys.exit(1)
+
     path = f"leaderboard/{task}/{dataset}.json"
     full = f"{repo_root.rstrip('/')}/{path}"
     try:
