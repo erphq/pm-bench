@@ -15,6 +15,7 @@ _DFG fitness × precision → F-score (higher is better)_
 | Model | F | Fitness | Precision | n_test | n_model |
 |---|---:|---:|---:|---:|---:|
 | `dfg-ref` | 1.0000 | 1.0000 | 1.0000 | 9 | 9 |
+| `empty-ref` | 0.0000 | 0.0000 | 0.0000 | 9 | 0 |
 
 ### next-event · synthetic-toy
 _top1 / top3 accuracy_
@@ -37,3 +38,4 @@ _MAE in days (lower is better)_
 | Model | mae_days | n |
 |---|---:|---:|
 | `mean-ref` | 1.3481 | 158 |
+| `zero-ref` | 2.7410 | 158 |

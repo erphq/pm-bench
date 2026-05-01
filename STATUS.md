@@ -60,6 +60,16 @@ pm-bench fetch bpi2020 --pin
 
 ## Recently shipped
 
+- **Floor baselines for time + conformance** (`floor-baselines` branch).
+  - `zero-time` for remaining-time: predicts 0 days for every prefix.
+    MAE 2.741 on synthetic-toy — exactly twice mean-ref's 1.348, as
+    expected for a constant zero predictor.
+  - `empty` for conformance: submits a model with no transitions.
+    F = 0 by construction; the absolute conformance floor.
+  - Both wired through CLI (`predict --baseline zero`, `discover
+    --baseline empty`) and added as second entries on their boards.
+    3 of 5 boards now demonstrate >1 entry; outcome and bottleneck
+    still single-entry pending future submissions.
 - **Uniform second baseline + multi-entry leaderboard demo**
   (`uniform-baseline` branch).
   - `pm_bench/baselines/uniform.py` — ranks every training-set

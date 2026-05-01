@@ -22,6 +22,7 @@ from pm_bench.baselines.prior_outcome import (
     write_outcome_predictions_csv,
 )
 from pm_bench.baselines.uniform import fit_uniform, predict_uniform
+from pm_bench.baselines.zero_time import predict_zero_time
 from pm_bench.bottleneck import (
     extract_bottleneck_targets,
     read_bottleneck_predictions_csv,
@@ -357,11 +358,11 @@ def prefixes(name: str, split_path: str, out_path: str, partition: str, task: st
 )
 @click.option(
     "--baseline",
-    type=click.Choice(["markov", "uniform", "mean", "prior", "mean-wait"]),
+    type=click.Choice(["markov", "uniform", "mean", "zero", "prior", "mean-wait"]),
     default="markov",
     show_default=True,
     help=(
-        "markov / uniform → next-event; mean → remaining-time; "
+        "markov / uniform → next-event; mean / zero → remaining-time; "
         "prior → outcome; mean-wait → bottleneck."
     ),
 )
@@ -398,11 +399,14 @@ def predict(
             preds = predict_uniform(uni_model, targets)
         n = write_predictions_csv(preds, out_path)
     elif task == "remaining-time":
-        if baseline != "mean":
+        if baseline not in ("mean", "zero"):
             raise click.UsageError(f"baseline {baseline!r} doesn't apply to remaining-time")
-        time_model = fit_mean_time(events, split_data["train"])
         time_targets = read_time_targets_csv(prefixes_path)
-        time_preds = predict_mean_time(time_model, time_targets)
+        if baseline == "mean":
+            time_model = fit_mean_time(events, split_data["train"])
+            time_preds = predict_mean_time(time_model, time_targets)
+        else:
+            time_preds = predict_zero_time(time_targets)
         n = write_time_predictions_csv(time_preds, out_path)
     elif task == "outcome":
         if baseline != "prior":
@@ -445,25 +449,27 @@ def predict(
 )
 @click.option(
     "--baseline",
-    type=click.Choice(["dfg"]),
+    type=click.Choice(["dfg", "empty"]),
     default="dfg",
     show_default=True,
-    help="dfg → directly-follows graph from training cases.",
+    help="dfg → DFG from training cases; empty → no transitions (absolute floor).",
 )
 def discover(name: str, split_path: str, out_path: str, baseline: str) -> None:
     """Discover a process model from training cases.
 
-    The submission for the conformance task is a model JSON. Today only
-    the DFG baseline ships in-tree - other discoverers (alpha, inductive)
-    can be added behind a `[discovery]` extra without changing the
-    submission format.
+    The submission for the conformance task is a model JSON. `dfg`
+    extracts the directly-follows graph; `empty` submits no transitions
+    (the absolute conformance floor — fitness 0, F-score 0).
     """
     events = _load_events(name)
     with open(split_path) as f:
         split_data = json.load(f)
-    if baseline != "dfg":
+    if baseline == "dfg":
+        dfg = extract_dfg(events, split_data["train"])
+    elif baseline == "empty":
+        dfg = set()
+    else:
         raise click.UsageError(f"unknown discoverer: {baseline}")
-    dfg = extract_dfg(events, split_data["train"])
     n = write_model_json(dfg, out_path)
     click.echo(f"wrote model with {n} transitions to {out_path} (baseline={baseline})")
 
