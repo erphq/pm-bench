@@ -75,6 +75,54 @@ def test_ensure_cached_pinned_mismatch_raises(tmp_path) -> None:
     assert "expected: " + ("0" * 64) in str(exc.value)
 
 
+def test_ensure_cached_auto_downloads_from_url(tmp_path) -> None:
+    """Spin up a one-shot HTTP server and fetch through `ensure_cached`."""
+    import hashlib
+    import http.server
+    import os
+    import socketserver
+    import threading
+
+    payload = b"fake archive served over http"
+    digest = hashlib.sha256(payload).hexdigest()
+    served_dir = tmp_path / "served"
+    served_dir.mkdir()
+    (served_dir / "log.xes.gz").write_bytes(payload)
+
+    quiet_handler = type(
+        "QuietHandler",
+        (http.server.SimpleHTTPRequestHandler,),
+        {"log_message": lambda *a, **kw: None},  # silence access logs
+    )
+
+    class _ThreadedHTTPServer(socketserver.ThreadingMixIn, http.server.HTTPServer):
+        daemon_threads = True
+
+    httpd = _ThreadedHTTPServer(("127.0.0.1", 0), quiet_handler)
+    port = httpd.server_address[1]
+    cwd_before = os.getcwd()
+    os.chdir(served_dir)
+    thread = threading.Thread(target=httpd.serve_forever, daemon=True)
+    thread.start()
+    try:
+        d = _ds(
+            sha256=digest,
+            download_url=f"http://127.0.0.1:{port}/log.xes.gz",
+        )
+        cache_root = tmp_path / "cache"
+        r = ensure_cached(d, override_root=str(cache_root))
+        assert r.downloaded is True
+        assert r.pinned is True
+        assert r.sha256 == digest
+        # Second call: cache hit, no re-download.
+        r2 = ensure_cached(d, override_root=str(cache_root))
+        assert r2.downloaded is False
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+        os.chdir(cwd_before)
+
+
 def test_ensure_cached_synthetic_rejected(tmp_path) -> None:
     d = Dataset(
         name="syn",
