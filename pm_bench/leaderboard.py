@@ -308,11 +308,30 @@ def verify(board: Board, repo_root: str | Path = ".", *, tol: float = 1e-9) -> l
     return drifts
 
 
+# Score keys where lower is better. Everything else either has no
+# direction (counts like `n`, `n_pos`) or is higher-is-better.
+_LOWER_IS_BETTER: frozenset[str] = frozenset({"mae_days"})
+_HIGHER_IS_BETTER: frozenset[str] = frozenset(
+    {"top1", "top3", "auc", "ndcg_at_k", "fscore", "fitness", "precision"}
+)
+
+
+def _direction_for(key: str) -> str | None:
+    if key in _LOWER_IS_BETTER:
+        return "lower_is_better"
+    if key in _HIGHER_IS_BETTER:
+        return "higher_is_better"
+    return None
+
+
 def compare_boards(a: Board, b: Board) -> dict:
     """Return per-model score deltas between two leaderboard snapshots.
 
     Both boards must be on the same (task, dataset). Models matched by
-    name; entries unique to one side are surfaced separately.
+    name; entries unique to one side are surfaced separately. For
+    metrics with a known direction (MAE, AUC, NDCG, etc.), each delta
+    is annotated with `improved: bool` so the consumer doesn't have to
+    remember which way is up.
     """
     if a.task != b.task or a.dataset != b.dataset:
         raise ValueError(
@@ -335,7 +354,16 @@ def compare_boards(a: Board, b: Board) -> dict:
             vb = eb.score.get(k)
             entry: dict = {"a": va, "b": vb}
             if isinstance(va, (int, float)) and isinstance(vb, (int, float)):
-                entry["delta"] = vb - va
+                delta = vb - va
+                entry["delta"] = delta
+                direction = _direction_for(k)
+                if direction is not None and delta != 0:
+                    entry["direction"] = direction
+                    entry["improved"] = (
+                        delta > 0
+                        if direction == "higher_is_better"
+                        else delta < 0
+                    )
             per_key[k] = entry
         deltas.append({"model": model, "scores": per_key})
 

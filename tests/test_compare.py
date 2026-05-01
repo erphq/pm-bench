@@ -84,6 +84,54 @@ def test_cli_compare_smoke(tmp_path: Path) -> None:
     )
 
 
+def test_compare_marks_higher_is_better_metric_improved() -> None:
+    """For accuracy / AUC / NDCG / F-score, +delta is better."""
+    from pm_bench.leaderboard import Board, Entry, compare_boards
+
+    base = Board(task="outcome", dataset="x", metric="m", raw={}, entries=[
+        Entry(model="m", version="1", predictions_path="p", score={"auc": 0.8}),
+    ])
+    better = Board(task="outcome", dataset="x", metric="m", raw={}, entries=[
+        Entry(model="m", version="1", predictions_path="p", score={"auc": 0.85}),
+    ])
+    out = compare_boards(base, better)
+    s = out["compared"][0]["scores"]["auc"]
+    assert s["improved"] is True
+    assert s["direction"] == "higher_is_better"
+
+
+def test_compare_marks_lower_is_better_metric_regressed() -> None:
+    """For MAE, +delta is worse."""
+    from pm_bench.leaderboard import Board, Entry, compare_boards
+
+    base = Board(task="remaining-time", dataset="x", metric="m", raw={}, entries=[
+        Entry(model="m", version="1", predictions_path="p", score={"mae_days": 1.0}),
+    ])
+    worse = Board(task="remaining-time", dataset="x", metric="m", raw={}, entries=[
+        Entry(model="m", version="1", predictions_path="p", score={"mae_days": 1.5}),
+    ])
+    out = compare_boards(base, worse)
+    s = out["compared"][0]["scores"]["mae_days"]
+    assert s["improved"] is False
+    assert s["direction"] == "lower_is_better"
+
+
+def test_compare_no_direction_for_count_metrics() -> None:
+    """`n`, `n_pos` etc. have no `improved` field — they're counts."""
+    from pm_bench.leaderboard import Board, Entry, compare_boards
+
+    a = Board(task="next-event", dataset="x", metric="m", raw={}, entries=[
+        Entry(model="m", version="1", predictions_path="p", score={"n": 100}),
+    ])
+    b = Board(task="next-event", dataset="x", metric="m", raw={}, entries=[
+        Entry(model="m", version="1", predictions_path="p", score={"n": 200}),
+    ])
+    out = compare_boards(a, b)
+    s = out["compared"][0]["scores"]["n"]
+    assert "improved" not in s
+    assert "direction" not in s
+
+
 def test_cli_compare_different_tasks_exits_runtime() -> None:
     runner = CliRunner()
     r = runner.invoke(

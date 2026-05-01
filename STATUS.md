@@ -60,6 +60,14 @@ pm-bench fetch bpi2020 --pin
 
 ## Recently shipped
 
+- **Round-4 polish** (`round4-polish` branch).
+  - `pm-bench compare` now annotates each metric delta with
+    `direction: "higher_is_better" | "lower_is_better"` and an
+    `improved: bool` flag (only for metrics with a known direction —
+    counts like `n` are left unannotated). Previously the JSON
+    output had only the raw delta, leaving the consumer to remember
+    which sign meant "better" per metric.
+  - 3 new tests covering both directions + the no-direction case.
 - **Round-3 cleanup** (`round3-fixes` branch). Another sweep turned up
   data-corruption and silent-misuse paths the first two passes missed:
   - `|` (PREFIX_SEP) in any activity name silently corrupted the
