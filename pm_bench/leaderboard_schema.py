@@ -49,7 +49,16 @@ def validate_board(board: dict) -> list[str]:
         if key not in board:
             errors.append(_err_path("$", f"missing required key {key!r}"))
 
-    if "task" in board and board["task"] not in VALID_TASKS:
+    for key in ("task", "dataset", "metric", "scored_with"):
+        if key in board and not isinstance(board[key], str):
+            errors.append(
+                _err_path(
+                    f"$.{key}",
+                    f"must be a string, got {type(board[key]).__name__}",
+                )
+            )
+
+    if "task" in board and isinstance(board["task"], str) and board["task"] not in VALID_TASKS:
         errors.append(
             _err_path(
                 "$.task",
@@ -62,8 +71,24 @@ def validate_board(board: dict) -> list[str]:
         if not isinstance(board["entries"], list):
             errors.append(_err_path("$.entries", "must be a list"))
         else:
+            seen_models: set[str] = set()
             for i, entry in enumerate(board["entries"]):
                 errors.extend(_validate_entry(entry, i))
+                # Names must be unique per board so standings have a
+                # canonical row per submission. Duplicates almost
+                # always mean the user copy-pasted and forgot to rename.
+                if isinstance(entry, dict):
+                    model = entry.get("model")
+                    if isinstance(model, str):
+                        if model in seen_models:
+                            errors.append(
+                                _err_path(
+                                    f"$.entries[{i}].model",
+                                    f"duplicate model name {model!r} (already "
+                                    "used in an earlier entry)",
+                                )
+                            )
+                        seen_models.add(model)
 
     if "split" in board:
         split = board["split"]

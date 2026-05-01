@@ -53,6 +53,35 @@ def test_entry_missing_score_is_caught() -> None:
     assert any("score" in e for e in errors)
 
 
+def test_duplicate_model_names_caught() -> None:
+    bad = {
+        "task": "next-event",
+        "dataset": "x",
+        "metric": "m",
+        "scored_with": "z",
+        "split": {"kind": "case-chrono"},
+        "entries": [
+            {"model": "same", "version": "1", "predictions_path": "p", "score": {}},
+            {"model": "same", "version": "2", "predictions_path": "q", "score": {}},
+        ],
+    }
+    errors = validate_board(bad)
+    assert any("duplicate model name" in e for e in errors)
+
+
+def test_non_string_required_fields_caught() -> None:
+    bad = {
+        "task": "next-event",
+        "dataset": None,
+        "metric": "m",
+        "scored_with": "z",
+        "split": {"kind": "case-chrono"},
+        "entries": [],
+    }
+    errors = validate_board(bad)
+    assert any("dataset" in e and "string" in e for e in errors)
+
+
 def test_entry_score_must_be_dict() -> None:
     bad = {
         "task": "next-event",

@@ -17,7 +17,6 @@ from __future__ import annotations
 
 import argparse
 import statistics
-from collections.abc import Callable
 
 from pm_bench import _synth
 from pm_bench.baselines.markov import fit_markov, predict_markov
@@ -155,7 +154,3 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
-
-# Re-export for tests that prefer the function APIs.
-_run_one_callable: Callable[[int, str], dict] = _run_one

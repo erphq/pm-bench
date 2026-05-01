@@ -155,6 +155,38 @@ def test_bottleneck_all_zero_truth_raises() -> None:
         )
 
 
+def test_remaining_time_rejects_nan() -> None:
+    """NaN in either side must raise rather than silently returning NaN."""
+    import math
+
+    with pytest.raises(ValueError, match="finite"):
+        score_remaining_time([math.nan, 1.0], [1.0, 1.0])
+    with pytest.raises(ValueError, match="finite"):
+        score_remaining_time([1.0, 2.0], [math.inf, 2.0])
+
+
+def test_outcome_rejects_non_binary_truth() -> None:
+    with pytest.raises(ValueError, match="0 or 1"):
+        score_outcome([0.1, 0.9], [1, 2])
+
+
+def test_outcome_rejects_nan_predictions() -> None:
+    import math
+
+    with pytest.raises(ValueError, match="finite"):
+        score_outcome([math.nan, 0.9], [0, 1])
+
+
+def test_bottleneck_rejects_nan() -> None:
+    import math
+
+    with pytest.raises(ValueError, match="finite"):
+        score_bottleneck(
+            {("a", "b"): math.nan},
+            {("a", "b"): 5.0},
+        )
+
+
 def test_outcome_known_value() -> None:
     """Hand-checked: 3 pos, 3 neg, one swap → AUC = 8/9."""
     # ranks ascending: [neg=0.1→1, neg=0.2→2, pos=0.3→3, neg=0.4→4, pos=0.5→5, pos=0.6→6]

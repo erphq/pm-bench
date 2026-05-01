@@ -60,6 +60,25 @@ pm-bench fetch bpi2020 --pin
 
 ## Recently shipped
 
+- **Round-3 cleanup** (`round3-fixes` branch). Another sweep turned up
+  data-corruption and silent-misuse paths the first two passes missed:
+  - `|` (PREFIX_SEP) in any activity name silently corrupted the
+    predictions / prefixes round-trip → writers now raise ValueError.
+  - `score_outcome` with non-binary truth labels silently treated
+    them as negative → now raises with the offending index.
+  - NaN / Inf in any score-fn input silently produced NaN/inf
+    output (and a non-spec leaderboard JSON) → all three numeric
+    score fns reject non-finite values up front.
+  - Duplicate `(case_id, prefix_idx)` (or `(a, b)` for bottleneck)
+    in predictions silently overwrote in the lookup-build → caught
+    in the rescore helpers AND the score CLI; surfaces as exit 2.
+  - Schema accepted duplicate model names within a board → caught.
+  - Schema accepted `null` / non-string in required string fields
+    (`task`, `dataset`, `metric`, `scored_with`) → typed checks added.
+  - Mixed-type `case_ids` (int + str) raw-`TypeError`'d at sort →
+    `_sorted_case_ids` helper now raises a clear "same type" error.
+  - Dead `_run_one_callable` re-export in `bench/seeds.py` removed.
+  - 9 new tests; 175 total, ruff clean.
 - **Second-pass cleanup** (`second-pass-fixes` branch).
   After the first audit landed, a fresh sweep turned up 5 more bugs:
   - `score_bottleneck` silently returned 0 on all-zero truth →

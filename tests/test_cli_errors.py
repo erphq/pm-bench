@@ -101,6 +101,26 @@ def test_score_predictions_missing_rows_exits_2(tmp_path: Path) -> None:
     assert "missing" in r.output
 
 
+def test_score_with_duplicate_prediction_keys_exits_2(tmp_path: Path) -> None:
+    """Duplicate (case_id, prefix_idx) in predictions silently overwrote
+    in the lookup-build before the round-3 fix; now must fail loudly."""
+    runner = CliRunner()
+    split_path = _write_split(tmp_path)
+    prefixes_path = _write_prefixes(tmp_path, "next-event", split_path)
+    preds_path = tmp_path / "preds.csv"
+    preds_path.write_text(
+        "case_id,prefix_idx,predictions\n"
+        "0,1,received|cancelled\n"
+        "0,1,payment_pending|cancelled\n"  # duplicate key, different prediction
+    )
+    r = runner.invoke(
+        main,
+        ["score", str(preds_path), "--prefixes", str(prefixes_path)],
+    )
+    assert r.exit_code == 2
+    assert "duplicate" in r.output.lower()
+
+
 def test_score_with_malformed_predictions_csv_exits_2(tmp_path: Path) -> None:
     """A predictions file with the wrong column header → exit 2, clean message."""
     runner = CliRunner()

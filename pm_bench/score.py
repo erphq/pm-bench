@@ -87,6 +87,14 @@ def score_outcome(
         raise ValueError("predictions and truth must be the same length")
     if len(predictions) == 0:
         raise ValueError("nothing to score")
+    bad = [(i, t) for i, t in enumerate(truth) if t not in (0, 1)]
+    if bad:
+        raise ValueError(
+            f"outcome truth must be 0 or 1; got {bad[0][1]!r} at index {bad[0][0]}"
+        )
+    for i, p in enumerate(predictions):
+        if not math.isfinite(p):
+            raise ValueError(f"predictions[{i}] is {p!r}; must be finite")
 
     n = len(predictions)
     n_pos = sum(1 for t in truth if t == 1)
@@ -205,6 +213,12 @@ def score_bottleneck(
         raise ValueError("truth is empty - nothing to rank")
     if k <= 0:
         raise ValueError("k must be > 0")
+    for key, v in truth.items():
+        if not math.isfinite(v):
+            raise ValueError(f"truth[{key}] is {v!r}; must be finite")
+    for key, v in predictions.items():
+        if not math.isfinite(v):
+            raise ValueError(f"predictions[{key}] is {v!r}; must be finite")
     # All-zero truth means no transition has any wait — every ranking is
     # equivalent. Rather than silently returning 0 (which punishes every
     # model equally and makes the leaderboard meaningless), refuse to
@@ -238,11 +252,21 @@ def score_remaining_time(
 
     `predictions[i]` is the model's predicted remaining time (days)
     for the i-th held-out prefix; `truth[i]` is what actually happened.
+
+    Raises ValueError if any prediction or truth value is NaN / Inf —
+    those would silently propagate to a NaN score and a non-spec
+    leaderboard JSON.
     """
     if len(predictions) != len(truth):
         raise ValueError("predictions and truth must be the same length")
     if len(predictions) == 0:
         raise ValueError("nothing to score")
+    for i, p in enumerate(predictions):
+        if not math.isfinite(p):
+            raise ValueError(f"predictions[{i}] is {p!r}; must be finite")
+    for i, t in enumerate(truth):
+        if not math.isfinite(t):
+            raise ValueError(f"truth[{i}] is {t!r}; must be finite")
     n = len(truth)
     total = sum(abs(float(p) - float(t)) for p, t in zip(predictions, truth, strict=True))
     return RemainingTimeScore(mae_days=total / n, n=n)

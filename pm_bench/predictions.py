@@ -50,12 +50,25 @@ def _open_text(path: str, mode: str = "rt") -> Any:
 
 
 def write_predictions_csv(predictions: Iterable[Prediction], path: str) -> int:
-    """Write predictions to a CSV file. Returns the number of rows."""
+    """Write predictions to a CSV file. Returns the number of rows.
+
+    Raises ValueError if any activity name contains the `|` separator
+    used to encode the ranked list. We surface this loudly rather than
+    silently corrupting the round-trip.
+    """
     n = 0
     with _open_text(path, "wt") as f:
         w = csv.writer(f)
         w.writerow(["case_id", "prefix_idx", "predictions"])
         for p in predictions:
+            for a in p.ranked:
+                if PREFIX_SEP in a:
+                    raise ValueError(
+                        f"activity {a!r} contains the {PREFIX_SEP!r} separator "
+                        "used to encode the ranked list — predictions would "
+                        "round-trip corrupted. Rename the activity or use a "
+                        "dataset-specific encoding."
+                    )
             w.writerow([p.case_id, p.prefix_idx, PREFIX_SEP.join(p.ranked)])
             n += 1
     return n

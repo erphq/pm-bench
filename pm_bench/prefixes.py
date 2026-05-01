@@ -40,6 +40,18 @@ PREFIX_SEP = "|"
 SECONDS_PER_DAY = 86400.0
 
 
+def _sorted_case_ids(keep: set):
+    """Return case ids in a deterministic order, with a clear error on
+    mixed-type input (which Python's `sorted` would TypeError on)."""
+    try:
+        return sorted(keep)
+    except TypeError as exc:
+        raise TypeError(
+            "case_ids must all be the same type (the CLI always emits "
+            f"strings); got mixed types — {exc}"
+        ) from exc
+
+
 @dataclass(frozen=True)
 class Prefix:
     case_id: CaseId
@@ -99,7 +111,7 @@ def extract_prefixes(
     # depends on PYTHONHASHSEED and the resulting CSV layout would diff
     # across regeneration runs. Scores are invariant to row order; bytes
     # aren't, so we sort.
-    for case_id in sorted(keep):
+    for case_id in _sorted_case_ids(keep):
         rows = by_case.get(case_id)
         if not rows or len(rows) < 2:
             continue
@@ -115,7 +127,12 @@ def extract_prefixes(
 
 
 def write_prefixes_csv(prefixes: Iterable[Prefix], path: str) -> int:
-    """Write prefixes to a CSV file (plain or `.gz`). Returns the number of rows."""
+    """Write prefixes to a CSV file (plain or `.gz`). Returns the number of rows.
+
+    Raises ValueError if any activity name contains the `|` separator —
+    same constraint as `write_predictions_csv`, since both columns
+    encode an ordered activity list with `|`.
+    """
     import csv
 
     from pm_bench.predictions import _open_text
@@ -125,6 +142,13 @@ def write_prefixes_csv(prefixes: Iterable[Prefix], path: str) -> int:
         w = csv.writer(f)
         w.writerow(["case_id", "prefix_idx", "prefix", "true_next"])
         for p in prefixes:
+            for a in (*p.prefix, p.true_next):
+                if PREFIX_SEP in a:
+                    raise ValueError(
+                        f"activity {a!r} contains the {PREFIX_SEP!r} separator "
+                        "used to encode the prefix list — prefixes would "
+                        "round-trip corrupted."
+                    )
             w.writerow([p.case_id, p.prefix_idx, PREFIX_SEP.join(p.prefix), p.true_next])
             n += 1
     return n
@@ -174,7 +198,7 @@ def extract_remaining_time_targets(
     # depends on PYTHONHASHSEED and the resulting CSV layout would diff
     # across regeneration runs. Scores are invariant to row order; bytes
     # aren't, so we sort.
-    for case_id in sorted(keep):
+    for case_id in _sorted_case_ids(keep):
         rows = by_case.get(case_id)
         if not rows or len(rows) < 2:
             continue
@@ -214,7 +238,7 @@ def extract_outcome_targets(
     # depends on PYTHONHASHSEED and the resulting CSV layout would diff
     # across regeneration runs. Scores are invariant to row order; bytes
     # aren't, so we sort.
-    for case_id in sorted(keep):
+    for case_id in _sorted_case_ids(keep):
         rows = by_case.get(case_id)
         if not rows or len(rows) < 2:
             continue

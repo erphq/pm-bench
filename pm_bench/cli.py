@@ -620,6 +620,10 @@ def _score_dispatch(
         truth_rows = read_prefixes_csv(prefixes_path)
         pred_rows = read_predictions_csv(predictions_path)
         pred_lookup = {(p.case_id, p.prefix_idx): p.ranked for p in pred_rows}
+        if len(pred_lookup) != len(pred_rows):
+            raise ValueError(
+                "predictions has duplicate (case_id, prefix_idx) keys"
+            )
         missing = [
             (t.case_id, t.prefix_idx)
             for t in truth_rows
@@ -647,6 +651,10 @@ def _score_dispatch(
         truth_time = read_time_targets_csv(prefixes_path)
         pred_time = read_time_predictions_csv(predictions_path)
         pred_t_lookup = {(p.case_id, p.prefix_idx): p.predicted_days for p in pred_time}
+        if len(pred_t_lookup) != len(pred_time):
+            raise ValueError(
+                "predictions has duplicate (case_id, prefix_idx) keys"
+            )
         missing = [
             (t.case_id, t.prefix_idx)
             for t in truth_time
@@ -673,6 +681,10 @@ def _score_dispatch(
         truth_o = read_outcome_targets_csv(prefixes_path)
         pred_o = read_outcome_predictions_csv(predictions_path)
         pred_o_lookup = {(p.case_id, p.prefix_idx): p.score for p in pred_o}
+        if len(pred_o_lookup) != len(pred_o):
+            raise ValueError(
+                "predictions has duplicate (case_id, prefix_idx) keys"
+            )
         missing = [
             (t.case_id, t.prefix_idx)
             for t in truth_o
@@ -700,6 +712,8 @@ def _score_dispatch(
     pred_b = read_bottleneck_predictions_csv(predictions_path)
     truth_dict = {(t.activity_a, t.activity_b): t.mean_wait_seconds for t in truth_b}
     pred_dict = {(p.activity_a, p.activity_b): p.predicted_wait_seconds for p in pred_b}
+    if len(pred_dict) != len(pred_b):
+        raise ValueError("predictions has duplicate (a, b) transition keys")
     bs = score_bottleneck(pred_dict, truth_dict, k=10)
     click.echo(
         json.dumps(

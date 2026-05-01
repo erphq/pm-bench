@@ -153,6 +153,25 @@ def _missing_targets_error(model: str, missing: list) -> ValueError:
     )
 
 
+def _check_unique_keys(rows: list, key_fn, label: str) -> None:
+    """Ensure no two rows share the same key.
+
+    A duplicate (case_id, prefix_idx) — or (a, b) for bottleneck — in
+    predictions would silently overwrite during the dict-build step
+    used everywhere else in this module. We surface it loudly: a
+    submission with duplicates is a buggy submission and should fail
+    fast, not get scored against an arbitrary "last write wins" pick.
+    """
+    seen: dict = {}
+    for r in rows:
+        k = key_fn(r)
+        if k in seen:
+            raise ValueError(
+                f"{label}: duplicate key {k} in predictions"
+            )
+        seen[k] = r
+
+
 def _rescore_next_event(board: Board, repo_root: Path) -> list[tuple[Entry, dict]]:
     truth = _truth_for_dataset(board.dataset)
     truth_keys = [(t.case_id, t.prefix_idx) for t in truth]
@@ -161,10 +180,9 @@ def _rescore_next_event(board: Board, repo_root: Path) -> list[tuple[Entry, dict
     out: list[tuple[Entry, dict]] = []
     for entry in board.entries:
         pred_path = repo_root / entry.predictions_path
-        pred_lookup = {
-            (p.case_id, p.prefix_idx): list(p.ranked)
-            for p in read_predictions_csv(str(pred_path))
-        }
+        rows = read_predictions_csv(str(pred_path))
+        _check_unique_keys(rows, lambda p: (p.case_id, p.prefix_idx), entry.model)
+        pred_lookup = {(p.case_id, p.prefix_idx): list(p.ranked) for p in rows}
         missing = [k for k in truth_keys if k not in pred_lookup]
         if missing:
             raise _missing_targets_error(entry.model, missing)
@@ -182,10 +200,9 @@ def _rescore_remaining_time(board: Board, repo_root: Path) -> list[tuple[Entry, 
     out: list[tuple[Entry, dict]] = []
     for entry in board.entries:
         pred_path = repo_root / entry.predictions_path
-        pred_lookup = {
-            (p.case_id, p.prefix_idx): p.predicted_days
-            for p in read_time_predictions_csv(str(pred_path))
-        }
+        rows = read_time_predictions_csv(str(pred_path))
+        _check_unique_keys(rows, lambda p: (p.case_id, p.prefix_idx), entry.model)
+        pred_lookup = {(p.case_id, p.prefix_idx): p.predicted_days for p in rows}
         missing = [k for k in truth_keys if k not in pred_lookup]
         if missing:
             raise _missing_targets_error(entry.model, missing)
@@ -202,10 +219,9 @@ def _rescore_bottleneck(board: Board, repo_root: Path) -> list[tuple[Entry, dict
     out: list[tuple[Entry, dict]] = []
     for entry in board.entries:
         pred_path = repo_root / entry.predictions_path
-        pred_dict = {
-            (p.activity_a, p.activity_b): p.predicted_wait_seconds
-            for p in read_bottleneck_predictions_csv(str(pred_path))
-        }
+        rows = read_bottleneck_predictions_csv(str(pred_path))
+        _check_unique_keys(rows, lambda p: (p.activity_a, p.activity_b), entry.model)
+        pred_dict = {(p.activity_a, p.activity_b): p.predicted_wait_seconds for p in rows}
         s = score_bottleneck(pred_dict, truth_dict, k=10)
         out.append(
             (
@@ -248,10 +264,9 @@ def _rescore_outcome(board: Board, repo_root: Path) -> list[tuple[Entry, dict]]:
     out: list[tuple[Entry, dict]] = []
     for entry in board.entries:
         pred_path = repo_root / entry.predictions_path
-        pred_lookup = {
-            (p.case_id, p.prefix_idx): p.score
-            for p in read_outcome_predictions_csv(str(pred_path))
-        }
+        rows = read_outcome_predictions_csv(str(pred_path))
+        _check_unique_keys(rows, lambda p: (p.case_id, p.prefix_idx), entry.model)
+        pred_lookup = {(p.case_id, p.prefix_idx): p.score for p in rows}
         missing = [k for k in truth_keys if k not in pred_lookup]
         if missing:
             raise _missing_targets_error(entry.model, missing)
