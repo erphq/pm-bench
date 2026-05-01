@@ -1,0 +1,62 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "pm-bench"
+version = "0.1.0"
+description = "The open process-mining benchmark — datasets, splits, scoring, leaderboard"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.10"
+authors = [{ name = "ERP•AI" }]
+keywords = [
+  "process-mining",
+  "benchmark",
+  "event-logs",
+  "machine-learning",
+  "bpi-challenge",
+]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "License :: OSI Approved :: MIT License",
+  "Topic :: Scientific/Engineering",
+]
+dependencies = [
+  "pyyaml >= 6.0",
+  "click >= 8.1",
+]
+
+[project.urls]
+Homepage = "https://www.erp.ai"
+Source = "https://github.com/erphq/pm-bench"
+Issues = "https://github.com/erphq/pm-bench/issues"
+
+[project.scripts]
+pm-bench = "pm_bench.cli:main"
+
+[project.optional-dependencies]
+dev = [
+  "pytest >= 8.0",
+  "ruff >= 0.6",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["pm_bench"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"pm_bench/registry.yml" = "pm_bench/registry.yml"
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

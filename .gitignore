@@ -16,3 +16,4 @@ htmlcov/
 data/cache/
 *.xes
 *.xes.gz
+.venv/

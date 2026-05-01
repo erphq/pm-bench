@@ -1,0 +1,87 @@
+# pm-bench dataset registry.
+#
+# `download_url` and `sha256` are filled in for datasets we can fetch
+# directly. For BPI Challenge logs we currently link the landing page;
+# resolving direct file URLs and pinning hashes is tracked for v0.1.
+
+datasets:
+  - name: bpi2012
+    title: "BPI Challenge 2012"
+    cases: 13087
+    events: 262200
+    landing_url: "https://data.4tu.nl/articles/dataset/BPI_Challenge_2012/12689204"
+    download_url: null
+    sha256: null
+    license: "CC BY 4.0"
+    format: xes
+
+  - name: bpi2017
+    title: "BPI Challenge 2017"
+    cases: 31509
+    events: 1202267
+    landing_url: "https://data.4tu.nl/articles/dataset/BPI_Challenge_2017/12696884"
+    download_url: null
+    sha256: null
+    license: "CC BY 4.0"
+    format: xes
+
+  - name: bpi2018
+    title: "BPI Challenge 2018"
+    cases: 43809
+    events: 2514266
+    landing_url: "https://data.4tu.nl/articles/dataset/BPI_Challenge_2018/12688355"
+    download_url: null
+    sha256: null
+    license: "CC BY 4.0"
+    format: xes
+
+  - name: bpi2019
+    title: "BPI Challenge 2019"
+    cases: 251734
+    events: 1595923
+    landing_url: "https://data.4tu.nl/articles/dataset/BPI_Challenge_2019/12715853"
+    download_url: null
+    sha256: null
+    license: "CC BY 4.0"
+    format: xes
+
+  - name: bpi2020
+    title: "BPI Challenge 2020 (collection)"
+    cases: 10500
+    events: 76000
+    landing_url: "https://data.4tu.nl/collections/_/5065541/1"
+    download_url: null
+    sha256: null
+    license: "CC BY 4.0"
+    format: xes
+
+  - name: sepsis
+    title: "Sepsis Cases — Event Log"
+    cases: 1050
+    events: 15214
+    landing_url: "https://data.4tu.nl/articles/dataset/Sepsis_Cases_-_Event_Log/12707639"
+    download_url: null
+    sha256: null
+    license: "CC BY 4.0"
+    format: xes
+
+  - name: helpdesk
+    title: "Helpdesk Event Log"
+    cases: 4580
+    events: 21348
+    landing_url: "https://data.mendeley.com/datasets/39bp3vv62t/1"
+    download_url: null
+    sha256: null
+    license: "CC BY 4.0"
+    format: csv
+
+  - name: synthetic-toy
+    title: "Synthetic toy event log (deterministic, generated)"
+    cases: 50
+    events: 250
+    landing_url: null
+    download_url: null
+    sha256: null
+    license: MIT
+    format: synthetic
+    bundled: true
