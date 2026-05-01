@@ -8,6 +8,7 @@ _NDCG@10 over per-transition wait times (higher is better)_
 | Model | NDCG@k | k | n_transitions |
 |---|---:|---:|---:|
 | `mean-wait-ref` | 0.9911 | 10 | 9 |
+| `random-ref` | 0.9434 | 10 | 9 |
 
 ### conformance · synthetic-toy
 _DFG fitness × precision → F-score (higher is better)_
@@ -31,6 +32,7 @@ _ROC AUC (higher is better)_
 | Model | AUC | n | n_pos |
 |---|---:|---:|---:|
 | `prior-ref` | 0.6319 | 158 | 45 |
+| `global-ref` | 0.5000 | 158 | 45 |
 
 ### remaining-time · synthetic-toy
 _MAE in days (lower is better)_

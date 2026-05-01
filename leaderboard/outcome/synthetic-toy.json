@@ -23,6 +23,20 @@
       },
       "scored_at": "2026-04-30T00:00:00Z",
       "notes": "Last-activity-conditioned positive rate (with global-rate fallback for unseen activities). The dumbest baseline that uses any prefix signal; a real model has to clear AUC 0.63 to claim it's reading the trace."
+    },
+    {
+      "model": "global-ref",
+      "version": "0.1.0",
+      "predictions_path": "leaderboard/predictions/outcome/synthetic-toy/global-ref.csv.gz",
+      "code": "https://github.com/erphq/pm-bench/blob/main/pm_bench/baselines/global_rate.py",
+      "paper": null,
+      "score": {
+        "auc": 0.5,
+        "n": 158,
+        "n_pos": 45
+      },
+      "scored_at": "2026-04-30T00:00:00Z",
+      "notes": "Constant prediction = training-set positive rate. Same score for every prefix → all ranks tied → AUC 0.5. The 'I don't condition on the trace at all' floor."
     }
   ]
 }

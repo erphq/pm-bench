@@ -7,6 +7,7 @@ import sys
 import click
 
 from pm_bench import _synth
+from pm_bench.baselines.global_rate import fit_global_rate, predict_global_rate
 from pm_bench.baselines.markov import fit_markov, predict_markov
 from pm_bench.baselines.mean_time import (
     fit_mean_time,
@@ -21,6 +22,7 @@ from pm_bench.baselines.prior_outcome import (
     read_outcome_predictions_csv,
     write_outcome_predictions_csv,
 )
+from pm_bench.baselines.random_rank import predict_random_rank
 from pm_bench.baselines.uniform import fit_uniform, predict_uniform
 from pm_bench.baselines.zero_time import predict_zero_time
 from pm_bench.bottleneck import (
@@ -373,12 +375,14 @@ def prefixes(name: str, split_path: str, out_path: str, partition: str, task: st
 )
 @click.option(
     "--baseline",
-    type=click.Choice(["markov", "uniform", "mean", "zero", "prior", "mean-wait"]),
+    type=click.Choice(
+        ["markov", "uniform", "mean", "zero", "prior", "global", "mean-wait", "random"]
+    ),
     default="markov",
     show_default=True,
     help=(
         "markov / uniform → next-event; mean / zero → remaining-time; "
-        "prior → outcome; mean-wait → bottleneck."
+        "prior / global → outcome; mean-wait / random → bottleneck."
     ),
 )
 @click.option(
@@ -424,25 +428,32 @@ def predict(
             time_preds = predict_zero_time(time_targets)
         n = write_time_predictions_csv(time_preds, out_path)
     elif task == "outcome":
-        if baseline != "prior":
+        if baseline not in ("prior", "global"):
             raise click.UsageError(f"baseline {baseline!r} doesn't apply to outcome")
         rule = _outcome_rule(name)
-        outcome_model = fit_prior_outcome(events, split_data["train"], rule)
         outcome_targets = read_outcome_targets_csv(prefixes_path)
-        # Build full activity sequences keyed by case_id so the baseline
-        # can read off each prefix's last activity.
-        seq_by_case: dict[str, list[str]] = {}
-        for cid, act, _ts in sorted(events, key=lambda e: e[2]):
-            seq_by_case.setdefault(cid, []).append(act)
-        outcome_preds = predict_prior_outcome(outcome_model, outcome_targets, seq_by_case)
+        if baseline == "prior":
+            outcome_model = fit_prior_outcome(events, split_data["train"], rule)
+            seq_by_case: dict[str, list[str]] = {}
+            for cid, act, _ts in sorted(events, key=lambda e: e[2]):
+                seq_by_case.setdefault(cid, []).append(act)
+            outcome_preds = predict_prior_outcome(
+                outcome_model, outcome_targets, seq_by_case
+            )
+        else:
+            global_model = fit_global_rate(events, split_data["train"], rule)
+            outcome_preds = predict_global_rate(global_model, outcome_targets)
         n = write_outcome_predictions_csv(outcome_preds, out_path)
     else:
         # bottleneck
-        if baseline != "mean-wait":
+        if baseline not in ("mean-wait", "random"):
             raise click.UsageError(f"baseline {baseline!r} doesn't apply to bottleneck")
-        wait_model = fit_mean_wait(events, split_data["train"])
         wait_targets = read_bottleneck_targets_csv(prefixes_path)
-        wait_preds = predict_mean_wait(wait_model, wait_targets)
+        if baseline == "mean-wait":
+            wait_model = fit_mean_wait(events, split_data["train"])
+            wait_preds = predict_mean_wait(wait_model, wait_targets)
+        else:
+            wait_preds = predict_random_rank(wait_targets)
         n = write_bottleneck_predictions_csv(wait_preds, out_path)
     click.echo(f"wrote {n} predictions to {out_path} (task={task} baseline={baseline})")
 

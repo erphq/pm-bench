@@ -60,6 +60,16 @@ pm-bench fetch bpi2020 --pin
 
 ## Recently shipped
 
+- **Floor baselines on outcome + bottleneck — every board multi-entry**
+  (`last-two-floors` branch).
+  - `global` for outcome: predicts the training positive rate for
+    every prefix → AUC = 0.5 by tied ranks. Sits below prior-ref.
+  - `random` for bottleneck: deterministic SHA-256-based pseudo-random
+    score per (a,b) transition → NDCG@10 0.943 vs mean-wait-ref's
+    0.991. Stable across CI runs.
+  - All 5 leaderboard boards now have 2 entries; multi-entry sort
+    asserted across every task.
+  - 147 total tests, ruff clean. STANDINGS regenerated.
 - **`pm-bench validate <board.json>`** (`validate-command` branch).
   - One-shot pre-flight: schema check + score rescore on a single
     leaderboard file. Exits 0 / 2 with clear schema-prefixed or
