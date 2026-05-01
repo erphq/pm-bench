@@ -1,0 +1,40 @@
+{
+  "transitions": [
+    [
+      "allocate_inventory",
+      "ship_order"
+    ],
+    [
+      "fraud_review",
+      "payment_settled"
+    ],
+    [
+      "payment_pending",
+      "fraud_review"
+    ],
+    [
+      "payment_pending",
+      "payment_settled"
+    ],
+    [
+      "payment_settled",
+      "allocate_inventory"
+    ],
+    [
+      "payment_settled",
+      "refund_initiated"
+    ],
+    [
+      "received",
+      "cancelled"
+    ],
+    [
+      "received",
+      "payment_pending"
+    ],
+    [
+      "ship_order",
+      "delivery_confirmed"
+    ]
+  ]
+}

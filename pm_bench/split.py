@@ -1,4 +1,4 @@
-"""Case-level chronological split — the only blessed split in pm-bench.
+"""Case-level chronological split - the only blessed split in pm-bench.
 
 Train = oldest 70% of cases by start time, val = next 10%, test = newest
 20%. No within-case leakage; suffix-aware downstream evaluation samples

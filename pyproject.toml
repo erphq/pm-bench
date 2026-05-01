@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "pm-bench"
 version = "0.1.0"
-description = "The open process-mining benchmark — datasets, splits, scoring, leaderboard"
+description = "The open process-mining benchmark - datasets, splits, scoring, leaderboard"
 readme = "README.md"
 license = { text = "MIT" }
 requires-python = ">=3.10"

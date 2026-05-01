@@ -1,4 +1,4 @@
-"""Dataset registry — typed view of registry.yml."""
+"""Dataset registry - typed view of registry.yml."""
 from __future__ import annotations
 
 from dataclasses import dataclass

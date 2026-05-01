@@ -5,9 +5,29 @@ Be the default benchmark for new process-mining methods. Within 18 months,
 ≥10 external papers report `pm-bench` numbers in their abstract.
 
 ## v0 success criteria
-- 7 datasets fetchable + hash-verified
-- 5 tasks with fixed scoring scripts
-- `gnn` runs end-to-end as the reference baseline
+- 7 datasets fetchable + hash-verified - fetch/hash machinery shipped
+  (`pm-bench fetch <name> [--pin]`); per-dataset hash pins pending
+  the one-time TOS-gated downloads
+- 5 tasks with fixed scoring scripts ✅ (next-event, remaining-time,
+  outcome, bottleneck, conformance - all shipped with a CPython
+  baseline and a leaderboard entry on synthetic-toy)
+- `gnn` runs end-to-end as the reference baseline (Markov reference ✅;
+  `gnn` integration pending the first pinned dataset)
+- End-to-end loop runs on `synthetic-toy` ✅ - split → prefixes →
+  predict → score, covered by `tests/test_e2e.py`
+
+## Leaderboard
+- Standings JSON format and reference Markov entry on `synthetic-toy`
+  shipped (`leaderboard/next-event/synthetic-toy.json`)
+- `pm-bench leaderboard --verify` re-scores entries to catch drift; a
+  test guards the Markov-ref score
+- CI workflow shipped: `.github/workflows/leaderboard.yml` runs
+  `pm-bench leaderboard --all --verify` on every PR / push that
+  touches scoring code or standings files
+- STANDINGS.md auto-generated and checked in; staleness is a CI
+  failure
+- Remaining: URL-fetch submission flow (predictions hosted offsite)
+  is a v1.x ergonomics nice-to-have, not a v0 blocker
 
 ## v1 success criteria
 - ≥3 external groups submit to the leaderboard
@@ -16,7 +36,7 @@ Be the default benchmark for new process-mining methods. Within 18 months,
 
 ## Architecture decisions
 - Python 3.10+, `pip install pm-bench`
-- Datasets NOT in the repo — fetched from canonical 4TU URLs and cached
+- Datasets NOT in the repo - fetched from canonical 4TU URLs and cached
 - Splits are deterministic functions of `(dataset_hash, task, seed)`
 - Scoring is pure CPython, no GPU dep
 

@@ -1,0 +1,53 @@
+"""Reference baselines that ship with pm-bench.
+
+Baselines exist to anchor the leaderboard: a submission that loses to
+the markov reference is an immediate red flag. They're deliberately
+simple - no torch, no scikit-learn, no GPUs, just CPython - so anyone
+can read the code and trust the number.
+"""
+from __future__ import annotations
+
+from pm_bench.baselines.markov import MarkovBaseline, predict_markov
+from pm_bench.baselines.mean_time import (
+    MeanTimeBaseline,
+    TimePrediction,
+    fit_mean_time,
+    predict_mean_time,
+    read_time_predictions_csv,
+    write_time_predictions_csv,
+)
+from pm_bench.baselines.mean_wait import MeanWaitBaseline, fit_mean_wait, predict_mean_wait
+from pm_bench.baselines.prior_outcome import (
+    OutcomePrediction,
+    PriorOutcomeBaseline,
+    fit_prior_outcome,
+    predict_prior_outcome,
+    read_outcome_predictions_csv,
+    write_outcome_predictions_csv,
+)
+from pm_bench.baselines.uniform import UniformBaseline, fit_uniform, predict_uniform
+from pm_bench.baselines.zero_time import predict_zero_time
+
+__all__ = [
+    "MarkovBaseline",
+    "MeanTimeBaseline",
+    "MeanWaitBaseline",
+    "OutcomePrediction",
+    "PriorOutcomeBaseline",
+    "TimePrediction",
+    "UniformBaseline",
+    "fit_mean_time",
+    "fit_mean_wait",
+    "fit_prior_outcome",
+    "fit_uniform",
+    "predict_markov",
+    "predict_mean_time",
+    "predict_mean_wait",
+    "predict_prior_outcome",
+    "predict_uniform",
+    "predict_zero_time",
+    "read_outcome_predictions_csv",
+    "read_time_predictions_csv",
+    "write_outcome_predictions_csv",
+    "write_time_predictions_csv",
+]
