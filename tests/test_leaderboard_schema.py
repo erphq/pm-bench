@@ -69,6 +69,89 @@ def test_duplicate_model_names_caught() -> None:
     assert any("duplicate model name" in e for e in errors)
 
 
+def test_model_name_with_special_chars_caught() -> None:
+    """Backticks / spaces / etc. would break markdown rendering."""
+    bad = {
+        "task": "next-event",
+        "dataset": "x",
+        "metric": "m",
+        "scored_with": "z",
+        "split": {"kind": "case-chrono"},
+        "entries": [
+            {
+                "model": "has`backtick",
+                "version": "1",
+                "predictions_path": "p",
+                "score": {},
+            }
+        ],
+    }
+    errors = validate_board(bad)
+    assert any("[A-Za-z0-9._-]" in e for e in errors)
+
+
+def test_absolute_predictions_path_rejected() -> None:
+    """Absolute paths in predictions_path could read files outside the repo."""
+    bad = {
+        "task": "next-event",
+        "dataset": "x",
+        "metric": "m",
+        "scored_with": "z",
+        "split": {"kind": "case-chrono"},
+        "entries": [
+            {
+                "model": "x",
+                "version": "1",
+                "predictions_path": "/etc/passwd",
+                "score": {},
+            }
+        ],
+    }
+    errors = validate_board(bad)
+    assert any("absolute" in e for e in errors)
+
+
+def test_traversing_predictions_path_rejected() -> None:
+    """`../` in predictions_path could escape the repo."""
+    bad = {
+        "task": "next-event",
+        "dataset": "x",
+        "metric": "m",
+        "scored_with": "z",
+        "split": {"kind": "case-chrono"},
+        "entries": [
+            {
+                "model": "x",
+                "version": "1",
+                "predictions_path": "../../etc/passwd",
+                "score": {},
+            }
+        ],
+    }
+    errors = validate_board(bad)
+    assert any("traverse" in e for e in errors)
+
+
+def test_model_name_with_space_caught() -> None:
+    bad = {
+        "task": "next-event",
+        "dataset": "x",
+        "metric": "m",
+        "scored_with": "z",
+        "split": {"kind": "case-chrono"},
+        "entries": [
+            {
+                "model": "has space",
+                "version": "1",
+                "predictions_path": "p",
+                "score": {},
+            }
+        ],
+    }
+    errors = validate_board(bad)
+    assert any("space" in e or "[A-Za-z0-9._-]" in e for e in errors)
+
+
 def test_non_string_required_fields_caught() -> None:
     bad = {
         "task": "next-event",

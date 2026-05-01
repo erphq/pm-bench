@@ -72,6 +72,14 @@ pm-bench fetch bpi2020 --pin
   - `_download` cleans up the `.part` file on a partial-transfer
     failure rather than leaving an orphan blob in the cache dir.
   - 6 new tests; 181 total, ruff clean.
+  - **R11**: model name with backticks / spaces broke markdown
+    standings (model rendered inside markdown backticks). Schema
+    now restricts model name to `[A-Za-z0-9._-]+`.
+  - **R12**: absolute or `..`-traversing `predictions_path` was
+    accepted, letting a malicious leaderboard JSON trigger reads
+    outside the repo. Schema now rejects both shapes; the residual
+    KeyError on a non-CSV file at the verify path is caught and
+    surfaced as exit 2.
   - `pm-bench compare` now annotates each metric delta with
     `direction: "higher_is_better" | "lower_is_better"` and an
     `improved: bool` flag (only for metrics with a known direction —

@@ -952,6 +952,12 @@ def validate(board_path: str, repo_root: str, no_rescore: bool) -> None:
             err=True,
         )
         sys.exit(2)
+    except (KeyError, ValueError) as exc:
+        # KeyError = predictions file opened but missing a required column
+        # (e.g., predictions_path points at /etc/passwd or any non-CSV).
+        # ValueError = bad model JSON for conformance.
+        click.echo(f"score: {exc}", err=True)
+        sys.exit(2)
     if drifts:
         for d in drifts:
             click.echo(f"score: {d}", err=True)

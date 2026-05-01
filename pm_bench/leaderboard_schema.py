@@ -11,7 +11,14 @@ decide whether to print them, fail loudly, or accumulate across files.
 """
 from __future__ import annotations
 
+import re
 from collections.abc import Iterable
+
+# Model names are rendered inside backticks in the markdown standings,
+# go in URLs, and serve as primary keys. Restrict to a safe alphanumeric
+# subset so a model literally named with a backtick can't break the
+# table or escape any rendering context.
+_MODEL_NAME_RE = re.compile(r"^[A-Za-z0-9._-]+$")
 
 VALID_TASKS: set[str] = {
     "next-event",
@@ -113,8 +120,33 @@ def _validate_entry(entry: object, idx: int) -> Iterable[str]:
     if "score" in entry and not isinstance(entry["score"], dict):
         yield _err_path(f"{base}.score", "must be an object")
 
-    if "model" in entry and not isinstance(entry["model"], str):
-        yield _err_path(f"{base}.model", "must be a string")
+    if "model" in entry:
+        model = entry["model"]
+        if not isinstance(model, str):
+            yield _err_path(f"{base}.model", "must be a string")
+        elif not _MODEL_NAME_RE.match(model):
+            yield _err_path(
+                f"{base}.model",
+                f"model name {model!r} must match [A-Za-z0-9._-]+ — names "
+                "render inside markdown backticks and serve as primary keys",
+            )
 
-    if "predictions_path" in entry and not isinstance(entry["predictions_path"], str):
-        yield _err_path(f"{base}.predictions_path", "must be a string")
+    if "predictions_path" in entry:
+        pp = entry["predictions_path"]
+        if not isinstance(pp, str):
+            yield _err_path(f"{base}.predictions_path", "must be a string")
+        else:
+            # Reject absolute paths and `..` traversal: the leaderboard
+            # JSON is checked into a repo, so predictions live alongside
+            # it. Allowing arbitrary filesystem paths would let a
+            # malicious entry trigger reads of files outside the repo.
+            if pp.startswith("/") or pp.startswith("\\") or len(pp) >= 2 and pp[1] == ":":
+                yield _err_path(
+                    f"{base}.predictions_path",
+                    f"must be a relative path; got absolute {pp!r}",
+                )
+            elif ".." in pp.replace("\\", "/").split("/"):
+                yield _err_path(
+                    f"{base}.predictions_path",
+                    f"must not traverse with `..`; got {pp!r}",
+                )
