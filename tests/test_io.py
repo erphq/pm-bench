@@ -220,6 +220,19 @@ def test_prefixes_csv_strips_true_next_and_prefix(tmp_path: Path) -> None:
     assert rows[0].true_next == "c"
 
 
+def test_read_csv_log_rejects_empty_case_id(tmp_path: Path) -> None:
+    """Empty case_id silently aggregates rows into a phantom case."""
+    p = tmp_path / "bad.csv"
+    p.write_text(
+        "case_id,activity,timestamp\n"
+        ",a,2024-01-01T00:00:00\n"
+    )
+    import pytest as _pytest
+
+    with _pytest.raises(ValueError, match="empty case_id"):
+        read_csv_log(p)
+
+
 def test_load_split_rejects_non_list_partitions(tmp_path: Path) -> None:
     """A split.json with `train: "c1"` (string) would silently iterate
     as characters when fed to set(case_ids). Reject up front."""

@@ -117,16 +117,29 @@ def read_bottleneck_targets_csv(path: str) -> list[BottleneckTarget]:
 def write_bottleneck_predictions_csv(
     predictions: Iterable[BottleneckPrediction], path: str
 ) -> int:
-    """Write bottleneck predictions to a CSV file (plain or `.gz`)."""
+    """Write bottleneck predictions to a CSV file (plain or `.gz`).
+
+    Rejects NaN / Inf in `predicted_wait_seconds` — symmetric with the
+    score function's finite check.
+    """
+    import math
+
     from pm_bench.predictions import _atomic_csv_write
+
+    def _rows():
+        for p in predictions:
+            if not math.isfinite(p.predicted_wait_seconds):
+                raise ValueError(
+                    f"predicted_wait_seconds for ({p.activity_a!r}, "
+                    f"{p.activity_b!r}) is {p.predicted_wait_seconds!r}; "
+                    "must be finite"
+                )
+            yield (p.activity_a, p.activity_b, repr(p.predicted_wait_seconds))
 
     return _atomic_csv_write(
         path,
         ["activity_a", "activity_b", "predicted_wait_seconds"],
-        (
-            (p.activity_a, p.activity_b, repr(p.predicted_wait_seconds))
-            for p in predictions
-        ),
+        _rows(),
     )
 
 

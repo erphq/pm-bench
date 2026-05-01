@@ -415,7 +415,7 @@ def test_leaderboard_all_with_missing_predictions_exits_2(tmp_path: Path) -> Non
         ["leaderboard", "--all", "--verify", "--repo-root", str(tmp_path)],
     )
     assert r.exit_code == 2
-    assert "predictions not found" in r.output
+    assert "predictions not readable" in r.output
 
 
 def test_leaderboard_all_markdown_with_verify_runs_both(tmp_path: Path) -> None:

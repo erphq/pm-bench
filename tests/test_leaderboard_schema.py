@@ -201,6 +201,44 @@ def test_scored_at_when_present_must_be_string() -> None:
     assert any("scored_at" in e and "string" in e for e in errors)
 
 
+def test_empty_predictions_path_rejected() -> None:
+    """Empty path used to pass schema and then crash inside _open_text
+    with IsADirectoryError."""
+    bad = {
+        "task": "next-event",
+        "dataset": "x",
+        "metric": "m",
+        "scored_with": "z",
+        "split": {"kind": "case-chrono"},
+        "entries": [
+            {"model": "x", "version": "1", "predictions_path": "", "score": {}}
+        ],
+    }
+    errors = validate_board(bad)
+    assert any("non-empty path" in e for e in errors)
+
+
+def test_scored_at_must_be_iso_8601() -> None:
+    bad = {
+        "task": "next-event",
+        "dataset": "x",
+        "metric": "m",
+        "scored_with": "z",
+        "split": {"kind": "case-chrono"},
+        "entries": [
+            {
+                "model": "m",
+                "version": "1",
+                "predictions_path": "p",
+                "score": {},
+                "scored_at": "yesterday",
+            }
+        ],
+    }
+    errors = validate_board(bad)
+    assert any("ISO 8601" in e for e in errors)
+
+
 def test_traversing_predictions_path_rejected() -> None:
     """`../` in predictions_path could escape the repo."""
     bad = {

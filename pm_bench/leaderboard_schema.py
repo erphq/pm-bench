@@ -167,6 +167,18 @@ def _validate_entry(entry: object, idx: int) -> Iterable[str]:
                 f"{base}.scored_at",
                 f"must be a string (ISO 8601), got {type(sa).__name__}",
             )
+        else:
+            # Validate as ISO 8601 — `datetime.fromisoformat` accepts
+            # the full grammar in 3.11+ including trailing Z.
+            from datetime import datetime as _dt
+
+            try:
+                _dt.fromisoformat(sa.replace("Z", "+00:00"))
+            except ValueError:
+                yield _err_path(
+                    f"{base}.scored_at",
+                    f"not a valid ISO 8601 timestamp: {sa!r}",
+                )
 
     if "model" in entry:
         model = entry["model"]
@@ -183,6 +195,11 @@ def _validate_entry(entry: object, idx: int) -> Iterable[str]:
         pp = entry["predictions_path"]
         if not isinstance(pp, str):
             yield _err_path(f"{base}.predictions_path", "must be a string")
+        elif not pp.strip():
+            yield _err_path(
+                f"{base}.predictions_path",
+                "must be a non-empty path",
+            )
         else:
             # Reject absolute paths and `..` traversal: the leaderboard
             # JSON is checked into a repo, so predictions live alongside

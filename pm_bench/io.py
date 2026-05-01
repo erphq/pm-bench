@@ -102,9 +102,12 @@ def read_csv_log(path: str | Path) -> list[Event]:
                 ts = ts.astimezone(timezone.utc).replace(tzinfo=None)
             cid = cid_raw.strip()
             act = act_raw.strip()
-            # Empty activity is rejected at write time; reject on read
-            # too so the contract is symmetric and the user catches the
-            # data-quality issue before training.
+            # Empty case_id would silently aggregate every blank-id row
+            # into one phantom case. Empty activity is rejected at write
+            # time; reject both on read so the contract is symmetric and
+            # the user catches the data-quality issue before training.
+            if not cid:
+                raise ValueError(f"{path}:{i}: empty case_id")
             if not act:
                 raise ValueError(f"{path}:{i}: empty activity")
             out.append((cid, act, ts))

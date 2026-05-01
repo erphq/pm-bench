@@ -379,7 +379,15 @@ def compare_boards(a: Board, b: Board) -> dict:
             va = ea.score.get(k)
             vb = eb.score.get(k)
             entry: dict = {"a": va, "b": vb}
-            if isinstance(va, (int, float)) and isinstance(vb, (int, float)):
+            # bool is a subclass of int — exclude it explicitly so a
+            # future score field with `True/False` doesn't get a
+            # nonsensical numeric delta.
+            if (
+                isinstance(va, (int, float))
+                and isinstance(vb, (int, float))
+                and not isinstance(va, bool)
+                and not isinstance(vb, bool)
+            ):
                 delta = vb - va
                 entry["delta"] = delta
                 direction = _direction_for(k)

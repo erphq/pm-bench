@@ -116,6 +116,23 @@ def test_compare_marks_lower_is_better_metric_regressed() -> None:
     assert s["direction"] == "lower_is_better"
 
 
+def test_compare_does_not_subtract_booleans() -> None:
+    """isinstance(True, int) is True — without explicit guard the diff
+    would compute `delta = True - False = 1` and add `improved`."""
+    from pm_bench.leaderboard import Board, Entry, compare_boards
+
+    a = Board(task="next-event", dataset="x", metric="m", raw={}, entries=[
+        Entry(model="m", version="1", predictions_path="p", score={"flag": False}),
+    ])
+    b = Board(task="next-event", dataset="x", metric="m", raw={}, entries=[
+        Entry(model="m", version="1", predictions_path="p", score={"flag": True}),
+    ])
+    out = compare_boards(a, b)
+    s = out["compared"][0]["scores"]["flag"]
+    assert "delta" not in s
+    assert "improved" not in s
+
+
 def test_compare_no_direction_for_count_metrics() -> None:
     """`n`, `n_pos` etc. have no `improved` field — they're counts."""
     from pm_bench.leaderboard import Board, Entry, compare_boards

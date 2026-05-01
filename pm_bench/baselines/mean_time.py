@@ -58,13 +58,29 @@ def predict_mean_time(
 
 
 def write_time_predictions_csv(predictions: Iterable[TimePrediction], path: str) -> int:
-    """Write remaining-time predictions to CSV (plain or `.gz`). Returns row count."""
+    """Write remaining-time predictions to CSV (plain or `.gz`). Returns row count.
+
+    Rejects NaN / Inf at write time — score functions reject them too,
+    but a baseline that produced one would otherwise round-trip a "valid"
+    CSV that only fails at score time.
+    """
+    import math
+
     from pm_bench.predictions import _atomic_csv_write
+
+    def _rows():
+        for p in predictions:
+            if not math.isfinite(p.predicted_days):
+                raise ValueError(
+                    f"predicted_days for ({p.case_id!r}, {p.prefix_idx}) "
+                    f"is {p.predicted_days!r}; must be finite"
+                )
+            yield (p.case_id, p.prefix_idx, repr(p.predicted_days))
 
     return _atomic_csv_write(
         path,
         ["case_id", "prefix_idx", "predicted_days"],
-        ((p.case_id, p.prefix_idx, repr(p.predicted_days)) for p in predictions),
+        _rows(),
     )
 
 

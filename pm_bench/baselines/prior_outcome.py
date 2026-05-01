@@ -101,13 +101,27 @@ def write_outcome_predictions_csv(
     predictions: Iterable[OutcomePrediction],
     path: str,
 ) -> int:
-    """Write outcome predictions to CSV (plain or `.gz`). Returns row count."""
+    """Write outcome predictions to CSV (plain or `.gz`). Returns row count.
+
+    Rejects NaN / Inf at write time — symmetric with the score function.
+    """
+    import math
+
     from pm_bench.predictions import _atomic_csv_write
+
+    def _rows():
+        for p in predictions:
+            if not math.isfinite(p.score):
+                raise ValueError(
+                    f"score for ({p.case_id!r}, {p.prefix_idx}) is "
+                    f"{p.score!r}; must be finite"
+                )
+            yield (p.case_id, p.prefix_idx, repr(p.score))
 
     return _atomic_csv_write(
         path,
         ["case_id", "prefix_idx", "score"],
-        ((p.case_id, p.prefix_idx, repr(p.score)) for p in predictions),
+        _rows(),
     )
 
 

@@ -131,9 +131,9 @@ def _runtime_safe(fn):
     exceptions and exit 2 with a clean message.
 
     Used for verbs that read user-supplied files (CSV, JSON) where
-    KeyError / ValueError / TypeError / FileNotFoundError can come
+    KeyError / ValueError / TypeError / OSError (FileNotFoundError,
+    IsADirectoryError, PermissionError, NotADirectoryError) can come
     from any reader without wanting to propagate as raw tracebacks.
-    Verbs that need finer-grained handling skip this decorator.
     """
     import functools
 
@@ -141,7 +141,7 @@ def _runtime_safe(fn):
     def _wrapped(*args, **kwargs):
         try:
             return fn(*args, **kwargs)
-        except (KeyError, ValueError, TypeError, FileNotFoundError) as exc:
+        except (KeyError, ValueError, TypeError, OSError) as exc:
             click.echo(str(exc), err=True)
             sys.exit(2)
 
@@ -849,9 +849,9 @@ def leaderboard(
                     continue
                 try:
                     drifts = verify(board, repo_root=repo_root)
-                except FileNotFoundError as exc:
+                except OSError as exc:
                     click.echo(
-                        f"{f.relative_to(repo_root)}: predictions not found "
+                        f"{f.relative_to(repo_root)}: predictions not readable "
                         f"({exc.filename or exc})",
                         err=True,
                     )
@@ -902,9 +902,9 @@ def leaderboard(
     if do_verify:
         try:
             drifts = verify(board, repo_root=repo_root)
-        except FileNotFoundError as exc:
+        except OSError as exc:
             click.echo(
-                f"predictions not found ({exc.filename or exc}); "
+                f"predictions not readable ({exc.filename or exc}); "
                 "check --repo-root and the entry's predictions_path",
                 err=True,
             )
@@ -1003,9 +1003,9 @@ def validate(board_path: str, repo_root: str, no_rescore: bool) -> None:
     board = load_board(board_path)
     try:
         drifts = verify(board, repo_root=repo_root)
-    except FileNotFoundError as exc:
+    except OSError as exc:
         click.echo(
-            f"score: predictions file not found ({exc.filename or exc}); "
+            f"score: predictions file not readable ({exc.filename or exc}); "
             "check --repo-root and the entry's predictions_path",
             err=True,
         )

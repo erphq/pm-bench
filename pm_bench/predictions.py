@@ -113,11 +113,23 @@ def _atomic_csv_write(path: str, header: list[str], rows) -> int:
     a `.gz` ending and applies gzip encoding to the staging file —
     otherwise the rename produces a plain-text file at a `.gz` path,
     breaking every reader.
+
+    PID + UUID are mixed into the tmp name so two concurrent writers to
+    the same `path` don't clobber each other's staging file. The final
+    `Path.replace` is the only contended op and it's atomic on POSIX
+    and Windows.
     """
+    import os
+    import uuid
     from pathlib import Path
 
     p = str(path)
-    tmp = (p[:-3] + ".tmp.gz") if p.endswith(".gz") else (p + ".tmp")
+    stamp = f"{os.getpid()}-{uuid.uuid4().hex}"
+    tmp = (
+        f"{p[:-3]}.{stamp}.tmp.gz"
+        if p.endswith(".gz")
+        else f"{p}.{stamp}.tmp"
+    )
     n = 0
     try:
         with _open_text(tmp, "wt") as f:

@@ -47,23 +47,42 @@ def extract_dfg(
 
 
 def write_model_json(transitions: Iterable[tuple[Activity, Activity]], path: str | Path) -> int:
-    """Write a submission model JSON (plain or `.gz`). Returns the number of transitions.
+    """Write a submission model JSON (plain or `.gz`) atomically.
 
-    Auto-creates the parent directory if missing — same UX as the CSV
-    writers via `_open_text`. Handles `.gz` so a leaderboard entry with
-    `predictions_path: model.json.gz` round-trips correctly.
+    Auto-creates the parent directory if missing. Stages to a tmp file
+    and `Path.replace`s on success so a `KeyboardInterrupt` mid-write
+    doesn't leave a half-written file at the destination (which the
+    next `pm-bench score --task conformance` would crash on).
     """
+    import os
+    import uuid
+
     pairs = sorted({tuple(t) for t in transitions})
     data = json.dumps({"transitions": [list(p) for p in pairs]}, indent=2)
     p = Path(path)
     p.parent.mkdir(parents=True, exist_ok=True)
-    if str(p).endswith(".gz"):
-        import gzip
-
-        with gzip.open(p, "wt", encoding="utf-8") as f:
-            f.write(data)
+    # Insert PID + UUID into the tmp suffix so concurrent processes
+    # don't clobber each other's staging file before the final rename.
+    sp = str(p)
+    if sp.endswith(".gz"):
+        tmp = Path(sp[:-3] + f".{os.getpid()}-{uuid.uuid4().hex}.tmp.gz")
     else:
-        p.write_text(data, encoding="utf-8")
+        tmp = Path(sp + f".{os.getpid()}-{uuid.uuid4().hex}.tmp")
+    try:
+        if str(tmp).endswith(".gz"):
+            import gzip
+
+            with gzip.open(tmp, "wt", encoding="utf-8") as f:
+                f.write(data)
+        else:
+            tmp.write_text(data, encoding="utf-8")
+        tmp.replace(p)
+    except BaseException:
+        try:
+            tmp.unlink(missing_ok=True)
+        except OSError:
+            pass
+        raise
     return len(pairs)
 
 

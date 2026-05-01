@@ -60,6 +60,35 @@ pm-bench fetch bpi2020 --pin
 
 ## Recently shipped
 
+- **Round-11 cleanup** (`round11-fixes` branch). Eighth audit pass:
+  - **R47**: `IsADirectoryError` / `PermissionError` (and other
+    `OSError` subclasses) leaked as raw tracebacks past the
+    `except FileNotFoundError` filters. All four catch sites
+    (`_runtime_safe`, two leaderboard verify branches, validate's
+    verify) widened to `except OSError`.
+  - **R48**: schema accepted empty `predictions_path` (then crashed
+    in `_open_text` with `IsADirectoryError`). Now requires
+    non-empty.
+  - **R49**: `write_model_json` was the one writer without atomic
+    semantics. KeyboardInterrupt mid-write left a half-written
+    `.json` / `.json.gz` at the destination. Now stages PID+UUID-
+    suffixed tmp file and renames on success.
+  - **R50**: prediction writers accepted NaN/Inf and round-tripped
+    them as parseable strings; only the score function caught it
+    later (after data was already on disk). Now writers reject
+    non-finite values up-front.
+  - **R51**: `_atomic_csv_write` used a process-shared `path + ".tmp"`
+    suffix — concurrent writers to the same path would clobber each
+    other's staging file. Same PID+UUID fix as `fetch.py:_download`.
+  - **R52**: `read_csv_log` accepted empty `case_id` (silently
+    aggregating phantom case). Now rejected, mirroring the
+    empty-activity rule.
+  - **R53**: `compare_boards` subtracted booleans (`isinstance(True,
+    int)` is True). Schema rejects bools in scores; compare now
+    skips them too.
+  - **R55**: `scored_at` field accepted any string ("yesterday",
+    "2026-13-01"). Schema now requires ISO 8601.
+  - 4 new tests; 227 total, ruff clean.
 - **Round-10 cleanup** (`round10-fixes` branch). Seventh audit pass:
   - **R44**: `write_model_json` ignored `.gz` and skipped parent
     mkdir. `discover --out new_dir/model.json` raw-FileNotFound'd;
