@@ -143,6 +143,11 @@ def write_prefixes_csv(prefixes: Iterable[Prefix], path: str) -> int:
         w.writerow(["case_id", "prefix_idx", "prefix", "true_next"])
         for p in prefixes:
             for a in (*p.prefix, p.true_next):
+                if not a:
+                    raise ValueError(
+                        "activity is empty string — round-trip would lose it "
+                        "(empty string is the encoding's 'no activities' sentinel)"
+                    )
                 if PREFIX_SEP in a:
                     raise ValueError(
                         f"activity {a!r} contains the {PREFIX_SEP!r} separator "

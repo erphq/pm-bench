@@ -49,7 +49,10 @@ def extract_dfg(
 def write_model_json(transitions: Iterable[tuple[Activity, Activity]], path: str | Path) -> int:
     """Write a submission model JSON. Returns the number of transitions."""
     pairs = sorted({tuple(t) for t in transitions})
-    Path(path).write_text(json.dumps({"transitions": [list(p) for p in pairs]}, indent=2))
+    Path(path).write_text(
+        json.dumps({"transitions": [list(p) for p in pairs]}, indent=2),
+        encoding="utf-8",
+    )
     return len(pairs)
 
 
@@ -57,9 +60,12 @@ def read_model_json(path: str | Path) -> set[tuple[Activity, Activity]]:
     """Read a submission model JSON into a set of (a, b) pairs.
 
     Tolerates duplicates and any order. Raises ValueError if the JSON
-    is missing the `transitions` key or has a wrong shape.
+    is missing the `transitions` key or any pair is not a 2-tuple of
+    strings. Non-string pair elements would silently fail to overlap
+    the truth DFG (also string-keyed) and the user would see an
+    unexplained `fitness=0`.
     """
-    raw = json.loads(Path(path).read_text())
+    raw = json.loads(Path(path).read_text(encoding="utf-8-sig"))
     if not isinstance(raw, dict) or "transitions" not in raw:
         raise ValueError(f"{path}: model JSON must have a top-level 'transitions' key")
     pairs = raw["transitions"]
@@ -69,5 +75,10 @@ def read_model_json(path: str | Path) -> set[tuple[Activity, Activity]]:
     for i, p in enumerate(pairs):
         if not isinstance(p, list) or len(p) != 2:
             raise ValueError(f"{path}: transitions[{i}] must be a 2-element list")
+        if not (isinstance(p[0], str) and isinstance(p[1], str)):
+            raise ValueError(
+                f"{path}: transitions[{i}] must be [string, string]; got "
+                f"[{type(p[0]).__name__}, {type(p[1]).__name__}]"
+            )
         out.add((p[0], p[1]))
     return out

@@ -68,7 +68,7 @@ class Board:
 def load_board(path: str | Path) -> Board:
     """Load a leaderboard JSON file."""
     p = Path(path)
-    raw = json.loads(p.read_text())
+    raw = json.loads(p.read_text(encoding="utf-8-sig"))
     entries = [
         Entry(
             model=e["model"],

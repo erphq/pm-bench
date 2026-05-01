@@ -97,6 +97,17 @@ def test_read_model_json_rejects_bad_shape(tmp_path: Path) -> None:
         read_model_json(p)
 
 
+def test_read_model_json_rejects_non_string_pair_elements(tmp_path: Path) -> None:
+    """[['a', 1], ...] is structurally a 2-element list but would fail
+    to overlap with the (string-string) truth DFG → silent fitness=0."""
+    import pytest
+
+    p = tmp_path / "bad.json"
+    p.write_text(json.dumps({"transitions": [["a", 1]]}))
+    with pytest.raises(ValueError, match="\\[string, string\\]"):
+        read_model_json(p)
+
+
 def test_conformance_board_verifies() -> None:
     board = load_board(CONFORMANCE_BOARD)
     drifts = verify(board, repo_root=REPO_ROOT)

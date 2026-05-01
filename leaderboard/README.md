@@ -35,8 +35,18 @@ predictions and fills in the score.
 
 ## Score convention
 
-For `next-event`, the score block carries `top1`, `top3`, and `n` (the
-number of (case, prefix_idx) targets scored). All values are floats in
-`[0, 1]`. Higher is better. `n` makes split sizes auditable across
-entries - if your `n` differs from the reference, you used a different
-split.
+The `score` block on each entry carries different keys per task. All
+score floats live in `[0, 1]` unless noted. `n` (or `n_transitions`)
+makes split sizes auditable across entries — if your count differs
+from the reference, you used a different split.
+
+| Task | Score keys | Direction |
+|---|---|---|
+| `next-event` | `top1`, `top3`, `n` | higher is better |
+| `remaining-time` | `mae_days`, `n` | **lower** is better |
+| `outcome` | `auc`, `n`, `n_pos` | higher is better |
+| `bottleneck` | `ndcg_at_k`, `k`, `n_transitions` | higher is better |
+| `conformance` | `fscore`, `fitness`, `precision`, `n_test_transitions`, `n_model_transitions` | higher is better |
+
+`pm-bench compare` annotates each metric delta with `direction` and
+`improved` so callers don't have to remember which way is up.

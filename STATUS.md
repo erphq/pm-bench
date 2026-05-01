@@ -60,6 +60,41 @@ pm-bench fetch bpi2020 --pin
 
 ## Recently shipped
 
+- **Round-5 cleanup** (`round5-fixes` branch). A fresh agent-led audit
+  found 9 more issues; this PR fixes them all:
+  - **R14**: BOM-prefixed CSVs only worked for the event log, not for
+    predictions / prefixes / time / outcome / bottleneck / model JSON.
+    Centralized in `_open_text` (now `utf-8-sig` on read, `utf-8` on
+    write); `read_model_json` and `load_board` use `utf-8-sig`. Excel-
+    saved submissions round-trip now.
+  - **R15**: locale-default text I/O on Windows (cp1252) would
+    mojibake non-ASCII activity names. Every read/write is now
+    explicitly encoded.
+  - **R16**: `read_csv_log` stripped tzinfo without converting to UTC,
+    silently reordering aware rows relative to naive ones in mixed-tz
+    CSVs. Aware rows now `astimezone(UTC).replace(tzinfo=None)`.
+  - **R17**: `read_model_json` accepted non-string transition pair
+    elements (`["a", 1]`), producing silent fitness=0. Now raises with
+    the offending types.
+  - **R18**: concurrent `pm-bench fetch` of the same dataset would
+    race on the `.part` file. Each process now uses
+    `<dest>.<pid>-<uuid>.part` so the only contended op is the final
+    atomic rename.
+  - **R19**: `pm-bench fetch synthetic-toy@99` failed as "unknown
+    dataset" while every other command accepted the suffix. Now
+    matches synthetic-toy semantics ("generated on demand").
+  - **R20**: score CLI duplicate-key error didn't name the offending
+    key. Harmonized with the leaderboard rescore path's
+    `_check_unique_pred_keys`.
+  - **R21**: `bench/seeds.py` used population stdev where the
+    documented use is inferential (single new run vs the band).
+    Switched to sample stdev. STATUS numbers re-quoted.
+  - **R22**: empty-string activity name silently lost on round-trip
+    (it's the encoding's "no activities" sentinel). Writers now
+    reject.
+  - **R23**: `leaderboard/README.md` only documented next-event keys
+    (`top1`/`top3`/`n`). Now covers all 5 tasks with direction.
+  - 9 new tests; 191 total, ruff clean.
 - **Round-4 polish (continued)** (`round4-polish` branch).
   - `pm-bench compare` now annotates each metric delta with
     `direction: "higher_is_better" | "lower_is_better"` and an
@@ -201,9 +236,10 @@ pm-bench fetch bpi2020 --pin
     the synthetic generator and prints mean / std / min / max per
     metric. Quantifies the noise band any "real" submission must
     clear to be statistically interesting.
-  - First measurement (n=5): markov top-1 0.9183 ± 0.0111, mean-time
-    MAE 1.284 ± 0.045, prior outcome AUC 0.634 ± 0.005, mean-wait
-    NDCG@10 0.927 ± 0.017, dfg F 0.988 ± 0.024.
+  - First measurement (n=5, sample stdev): markov top-1
+    0.918 ± 0.012, mean-time MAE 1.284 ± 0.051, prior outcome AUC
+    0.634 ± 0.005, mean-wait NDCG@10 0.927 ± 0.018, dfg F
+    0.988 ± 0.026.
   - 4 new tests; 132 total, ruff clean.
 - **HTTP fetch test** (`http-fetch-test` branch). Daemon-threaded
   http.server on an ephemeral port; verifies ensure_cached's

@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import csv
 import gzip
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 from pm_bench.split import Event
@@ -81,8 +81,10 @@ def read_csv_log(path: str | Path) -> list[Event]:
                 raise ValueError(f"{path}:{i}: bad timestamp {row.get(ts_col)!r}") from exc
             # Normalize away any tzinfo so a CSV mixing aware + naive
             # rows doesn't blow up later when we subtract two timestamps
-            # in a split or duration calc.
+            # in a split or duration calc. Convert to UTC first — a bare
+            # `replace(tzinfo=None)` keeps the wall-clock value, which
+            # silently reorders aware rows relative to naive ones.
             if ts.tzinfo is not None:
-                ts = ts.replace(tzinfo=None)
+                ts = ts.astimezone(timezone.utc).replace(tzinfo=None)
             out.append((row[case_col], row[act_col], ts))
     return out

@@ -77,8 +77,17 @@ def _download(url: str, dest: Path) -> None:
     On a mid-transfer exception, the partial `.part` file is removed so
     a subsequent run starts clean rather than leaving an orphaned blob
     in the cache dir.
+
+    Two parallel `pm-bench fetch` invocations of the same dataset must
+    not corrupt each other's writes. We mix PID + a random suffix into
+    the temp name so each process gets its own staging file; the final
+    rename onto `dest` is the only contended step (and `Path.replace`
+    is atomic on POSIX / Windows).
     """
-    tmp = dest.with_suffix(dest.suffix + ".part")
+    import os
+    import uuid
+
+    tmp = dest.parent / f"{dest.name}.{os.getpid()}-{uuid.uuid4().hex}.part"
     tmp.parent.mkdir(parents=True, exist_ok=True)
     try:
         with urllib.request.urlopen(url) as resp, open(tmp, "wb") as out:  # noqa: S310

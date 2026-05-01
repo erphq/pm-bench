@@ -103,7 +103,8 @@ def test_score_predictions_missing_rows_exits_2(tmp_path: Path) -> None:
 
 def test_score_with_duplicate_prediction_keys_exits_2(tmp_path: Path) -> None:
     """Duplicate (case_id, prefix_idx) in predictions silently overwrote
-    in the lookup-build before the round-3 fix; now must fail loudly."""
+    in the lookup-build before the round-3 fix; now must fail loudly,
+    naming the offending key so the user can find it in their CSV."""
     runner = CliRunner()
     split_path = _write_split(tmp_path)
     prefixes_path = _write_prefixes(tmp_path, "next-event", split_path)
@@ -119,6 +120,8 @@ def test_score_with_duplicate_prediction_keys_exits_2(tmp_path: Path) -> None:
     )
     assert r.exit_code == 2
     assert "duplicate" in r.output.lower()
+    # Round-5: the message must include the offending key.
+    assert "('0', 1)" in r.output
 
 
 def test_score_with_malformed_predictions_csv_exits_2(tmp_path: Path) -> None:

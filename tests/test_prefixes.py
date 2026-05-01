@@ -67,6 +67,16 @@ def test_write_prefixes_csv_rejects_pipe_in_activity(tmp_path) -> None:
         write_prefixes_csv(bad, str(tmp_path / "x.csv"))
 
 
+def test_write_prefixes_csv_rejects_empty_activity(tmp_path) -> None:
+    """Empty-string activity is the encoding's 'no activities' sentinel
+    on read — writing it would silently lose the activity."""
+    import pytest as _pytest
+
+    bad = [Prefix(case_id="c1", prefix_idx=1, prefix=("",), true_next="c")]
+    with _pytest.raises(ValueError, match="empty string"):
+        write_prefixes_csv(bad, str(tmp_path / "x.csv"))
+
+
 def test_extract_prefixes_rejects_mixed_type_case_ids() -> None:
     """Mixed int/str case_ids would break sorted iteration; surface clearly."""
     import pytest as _pytest

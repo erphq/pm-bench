@@ -126,6 +126,21 @@ def _outcome_rule(name: str):
     )
 
 
+def _check_unique_pred_keys(rows: list, key_fn) -> None:
+    """Raise if any two prediction rows share the same join key.
+
+    Names the offending key so the user can find it in their CSV. The
+    leaderboard rescore path already does this; the score CLI used to
+    raise a key-less message.
+    """
+    seen: dict = {}
+    for r in rows:
+        k = key_fn(r)
+        if k in seen:
+            raise ValueError(f"predictions has duplicate key {k}")
+        seen[k] = r
+
+
 _SPLIT_REQUIRED_KEYS = ("train", "val", "test")
 
 
@@ -137,7 +152,7 @@ def _load_split(path: str) -> dict:
     while another exits cleanly.
     """
     try:
-        with open(path) as f:
+        with open(path, encoding="utf-8-sig") as f:
             data = json.load(f)
     except json.JSONDecodeError as exc:
         click.echo(f"{path}: not valid JSON ({exc})", err=True)
@@ -210,6 +225,13 @@ def fetch(name: str, pin: bool) -> None:
     Auto-downloads when `download_url` is set; otherwise prints
     instructions for the manual TOS-gated download path (4TU / Mendeley).
     """
+    # synthetic-toy@<seed> is a variant of synthetic-toy — same "generated
+    # on demand, no fetch needed" semantics. Other commands accept the
+    # @<seed> suffix; we match here for consistency.
+    if name.startswith("synthetic-toy@") or name == "synthetic-toy":
+        click.echo(f"{name}: generated on demand, no fetch needed")
+        return
+
     try:
         d = get_dataset(name)
     except KeyError:
@@ -619,11 +641,8 @@ def _score_dispatch(
     if task == "next-event":
         truth_rows = read_prefixes_csv(prefixes_path)
         pred_rows = read_predictions_csv(predictions_path)
+        _check_unique_pred_keys(pred_rows, lambda p: (p.case_id, p.prefix_idx))
         pred_lookup = {(p.case_id, p.prefix_idx): p.ranked for p in pred_rows}
-        if len(pred_lookup) != len(pred_rows):
-            raise ValueError(
-                "predictions has duplicate (case_id, prefix_idx) keys"
-            )
         missing = [
             (t.case_id, t.prefix_idx)
             for t in truth_rows
@@ -650,11 +669,8 @@ def _score_dispatch(
     if task == "remaining-time":
         truth_time = read_time_targets_csv(prefixes_path)
         pred_time = read_time_predictions_csv(predictions_path)
+        _check_unique_pred_keys(pred_time, lambda p: (p.case_id, p.prefix_idx))
         pred_t_lookup = {(p.case_id, p.prefix_idx): p.predicted_days for p in pred_time}
-        if len(pred_t_lookup) != len(pred_time):
-            raise ValueError(
-                "predictions has duplicate (case_id, prefix_idx) keys"
-            )
         missing = [
             (t.case_id, t.prefix_idx)
             for t in truth_time
@@ -680,11 +696,8 @@ def _score_dispatch(
     if task == "outcome":
         truth_o = read_outcome_targets_csv(prefixes_path)
         pred_o = read_outcome_predictions_csv(predictions_path)
+        _check_unique_pred_keys(pred_o, lambda p: (p.case_id, p.prefix_idx))
         pred_o_lookup = {(p.case_id, p.prefix_idx): p.score for p in pred_o}
-        if len(pred_o_lookup) != len(pred_o):
-            raise ValueError(
-                "predictions has duplicate (case_id, prefix_idx) keys"
-            )
         missing = [
             (t.case_id, t.prefix_idx)
             for t in truth_o
@@ -710,10 +723,9 @@ def _score_dispatch(
     # bottleneck
     truth_b = read_bottleneck_targets_csv(prefixes_path)
     pred_b = read_bottleneck_predictions_csv(predictions_path)
+    _check_unique_pred_keys(pred_b, lambda p: (p.activity_a, p.activity_b))
     truth_dict = {(t.activity_a, t.activity_b): t.mean_wait_seconds for t in truth_b}
     pred_dict = {(p.activity_a, p.activity_b): p.predicted_wait_seconds for p in pred_b}
-    if len(pred_dict) != len(pred_b):
-        raise ValueError("predictions has duplicate (a, b) transition keys")
     bs = score_bottleneck(pred_dict, truth_dict, k=10)
     click.echo(
         json.dumps(
@@ -919,7 +931,7 @@ def validate(board_path: str, repo_root: str, no_rescore: bool) -> None:
     from pathlib import Path as _Path
 
     try:
-        raw = json.loads(_Path(board_path).read_text())
+        raw = json.loads(_Path(board_path).read_text(encoding="utf-8-sig"))
     except json.JSONDecodeError as exc:
         click.echo(f"{board_path}: not valid JSON ({exc})", err=True)
         sys.exit(2)

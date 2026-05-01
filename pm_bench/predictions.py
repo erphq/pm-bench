@@ -35,6 +35,11 @@ def _open_text(path: str, mode: str = "rt") -> Any:
     "what `pm-bench score` accepts" and "what `--verify` accepts" is
     impossible by construction.
 
+    Reads use `utf-8-sig` (transparently strips a UTF-8 BOM that Excel
+    likes to add on save). Writes use `utf-8` so output is portable
+    regardless of the host's `locale.getencoding()` (Windows defaults
+    to cp1252, which mojibakes non-ASCII activity names).
+
     For write modes, auto-creates the parent directory if missing — a
     typo like `--out preds_dir/preds.csv` shouldn't fail with
     FileNotFoundError when the user obviously meant for it to be
@@ -42,11 +47,13 @@ def _open_text(path: str, mode: str = "rt") -> Any:
     """
     from pathlib import Path
 
-    if mode.startswith("w"):
+    is_write = mode.startswith("w")
+    if is_write:
         Path(path).parent.mkdir(parents=True, exist_ok=True)
+    encoding = "utf-8" if is_write else "utf-8-sig"
     if str(path).endswith(".gz"):
-        return gzip.open(path, mode, newline="")
-    return open(path, mode, newline="")
+        return gzip.open(path, mode, newline="", encoding=encoding)
+    return open(path, mode, newline="", encoding=encoding)
 
 
 def write_predictions_csv(predictions: Iterable[Prediction], path: str) -> int:
@@ -62,6 +69,11 @@ def write_predictions_csv(predictions: Iterable[Prediction], path: str) -> int:
         w.writerow(["case_id", "prefix_idx", "predictions"])
         for p in predictions:
             for a in p.ranked:
+                if not a:
+                    raise ValueError(
+                        "activity is empty string — round-trip would lose it "
+                        "(empty string is the encoding's 'no activities' sentinel)"
+                    )
                 if PREFIX_SEP in a:
                     raise ValueError(
                         f"activity {a!r} contains the {PREFIX_SEP!r} separator "

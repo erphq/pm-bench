@@ -106,7 +106,12 @@ def variance(task: str, n_seeds: int) -> dict:
         values = [r[k] for r in runs]
         out["metrics"][k] = {
             "mean": statistics.fmean(values),
-            "std": statistics.pstdev(values) if n_seeds > 1 else 0.0,
+            # Sample stdev (n-1 denominator). The seed list is a sample
+            # from the infinite population of synthetic draws, and the
+            # documented use ("compare a single new run against this
+            # band" — see CONTRIBUTING.md) is inferential, not
+            # descriptive. Population stdev would underestimate.
+            "std": statistics.stdev(values) if n_seeds > 1 else 0.0,
             "min": min(values),
             "max": max(values),
         }

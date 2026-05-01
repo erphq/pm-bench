@@ -115,6 +115,15 @@ def test_synthetic_seed_bad_int_fails_clearly() -> None:
     assert "bad seed" in r.output
 
 
+def test_fetch_accepts_synthetic_seed_suffix() -> None:
+    """`fetch synthetic-toy@99` should match synthetic-toy semantics —
+    'generated on demand, no fetch needed' — not error as 'unknown'."""
+    runner = CliRunner()
+    r = runner.invoke(main, ["fetch", "synthetic-toy@99"])
+    assert r.exit_code == 0, r.output
+    assert "generated on demand" in r.output
+
+
 def test_read_csv_log_strips_utf8_bom(tmp_path: Path) -> None:
     """Excel-exported CSVs carry a UTF-8 BOM; column resolution must
     still find `case_id` rather than getting `\\ufeffcase_id`."""
@@ -140,6 +149,39 @@ def test_read_csv_log_normalizes_tz_aware_timestamps(tmp_path: Path) -> None:
     # All timestamps should be naive after normalization, so subtraction works.
     assert events[1][2] - events[0][2]
     assert all(e[2].tzinfo is None for e in events)
+
+
+def test_read_csv_log_tz_aware_rows_converted_to_utc(tmp_path: Path) -> None:
+    """A tz-aware row at +05:00 must become a UTC-instant naive value,
+    not a wall-clock-stripped naive value (which would silently reorder
+    the row relative to naive rows)."""
+    p = tmp_path / "tz.csv"
+    p.write_text(
+        "case_id,activity,timestamp\n"
+        "c1,a,2024-01-01T05:00:00+05:00\n"  # 00:00 UTC
+        "c1,b,2024-01-01T01:00:00\n"  # naive 01:00
+    )
+    events = read_csv_log(p)
+    # After UTC conversion: a → 2024-01-01T00:00 UTC, b → 2024-01-01T01:00.
+    # If we'd done a naive replace, a would be 05:00 (after b).
+    assert events[0][1] == "a"
+    assert events[1][1] == "b"
+    assert events[0][2] < events[1][2]
+
+
+def test_predictions_csv_strips_bom(tmp_path: Path) -> None:
+    """A predictions CSV saved by Excel carries a UTF-8 BOM. The shared
+    _open_text reader must strip it the same way read_csv_log does."""
+    from pm_bench.predictions import read_predictions_csv
+
+    p = tmp_path / "preds.csv"
+    p.write_bytes(
+        b"\xef\xbb\xbfcase_id,prefix_idx,predictions\n"
+        b"c1,1,a|b\n"
+    )
+    rows = read_predictions_csv(str(p))
+    assert len(rows) == 1
+    assert rows[0].case_id == "c1"  # not '﻿c1'
 
 
 def test_cli_score_reads_gzipped_predictions(tmp_path: Path) -> None:
