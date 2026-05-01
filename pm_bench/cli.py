@@ -40,6 +40,7 @@ from pm_bench.fetch import (
 from pm_bench.leaderboard import (
     all_standings_markdown,
     board_to_markdown,
+    compare_boards,
     load_board,
     standings,
     verify,
@@ -775,6 +776,25 @@ def leaderboard(
             click.echo(
                 f"{e.model:<{width}}  top1={top1:.4f}  top3={top3:.4f}  n={n}"
             )
+
+
+@main.command()
+@click.argument("board_a", type=click.Path(exists=True, dir_okay=False))
+@click.argument("board_b", type=click.Path(exists=True, dir_okay=False))
+def compare(board_a: str, board_b: str) -> None:
+    """Diff two leaderboard JSON files. Per-model score deltas as JSON.
+
+    Use case: snapshot today's standings, change something, run again,
+    diff. Models that exist on only one side are surfaced separately.
+    """
+    a = load_board(board_a)
+    b = load_board(board_b)
+    try:
+        result = compare_boards(a, b)
+    except ValueError as exc:
+        click.echo(str(exc), err=True)
+        sys.exit(1)
+    click.echo(json.dumps(result, indent=2))
 
 
 if __name__ == "__main__":

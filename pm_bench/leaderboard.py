@@ -325,6 +325,46 @@ def verify(board: Board, repo_root: str | Path = ".", *, tol: float = 1e-9) -> l
     return drifts
 
 
+def compare_boards(a: Board, b: Board) -> dict:
+    """Return per-model score deltas between two leaderboard snapshots.
+
+    Both boards must be on the same (task, dataset). Models matched by
+    name; entries unique to one side are surfaced separately.
+    """
+    if a.task != b.task or a.dataset != b.dataset:
+        raise ValueError(
+            f"can't compare different boards: {a.task}/{a.dataset} vs "
+            f"{b.task}/{b.dataset}"
+        )
+
+    a_by_model = {e.model: e for e in a.entries}
+    b_by_model = {e.model: e for e in b.entries}
+    shared = sorted(set(a_by_model) & set(b_by_model))
+    only_a = sorted(set(a_by_model) - set(b_by_model))
+    only_b = sorted(set(b_by_model) - set(a_by_model))
+
+    deltas: list[dict] = []
+    for model in shared:
+        ea, eb = a_by_model[model], b_by_model[model]
+        per_key: dict[str, dict] = {}
+        for k in sorted(set(ea.score) | set(eb.score)):
+            va = ea.score.get(k)
+            vb = eb.score.get(k)
+            entry: dict = {"a": va, "b": vb}
+            if isinstance(va, (int, float)) and isinstance(vb, (int, float)):
+                entry["delta"] = vb - va
+            per_key[k] = entry
+        deltas.append({"model": model, "scores": per_key})
+
+    return {
+        "task": a.task,
+        "dataset": a.dataset,
+        "compared": deltas,
+        "only_in_a": only_a,
+        "only_in_b": only_b,
+    }
+
+
 def board_to_markdown(board: Board) -> str:
     """Render a single board as a fenced markdown table.
 

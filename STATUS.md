@@ -60,6 +60,13 @@ pm-bench fetch bpi2020 --pin
 
 ## Recently shipped
 
+- **`pm-bench compare board_a.json board_b.json`** (`compare-command`
+  branch).
+  - Diff two leaderboard JSON files. Per-model score deltas as JSON;
+    models unique to one side surfaced separately.
+  - Tasks/datasets must match (errors loudly otherwise) — prevents
+    accidental cross-task comparisons.
+  - 6 new tests; 123 total, ruff clean.
 - **Floor baselines for time + conformance** (`floor-baselines` branch).
   - `zero-time` for remaining-time: predicts 0 days for every prefix.
     MAE 2.741 on synthetic-toy - exactly twice mean-ref's 1.348, as
