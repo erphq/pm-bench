@@ -1,7 +1,7 @@
 """End-to-end smoke: split → prefixes → predict → score on synthetic-toy.
 
 Locks the file format the leaderboard depends on. If this test changes
-shape, leaderboard submissions break — bump the version and announce.
+shape, leaderboard submissions break - bump the version and announce.
 """
 from __future__ import annotations
 

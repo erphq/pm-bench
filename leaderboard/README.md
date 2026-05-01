@@ -22,7 +22,7 @@ pm-bench leaderboard next-event synthetic-toy --verify
 This re-scores every entry by reading its `predictions_path` (relative
 to the repo root) and the dataset's prefixes file, then asserts the
 recorded `score` matches what `pm_bench.score` produces today.
-Any drift fails loudly — pinned numbers must match the code that
+Any drift fails loudly - pinned numbers must match the code that
 produced them.
 
 ## Submitting
@@ -38,5 +38,5 @@ predictions and fills in the score.
 For `next-event`, the score block carries `top1`, `top3`, and `n` (the
 number of (case, prefix_idx) targets scored). All values are floats in
 `[0, 1]`. Higher is better. `n` makes split sizes auditable across
-entries — if your `n` differs from the reference, you used a different
+entries - if your `n` differs from the reference, you used a different
 split.

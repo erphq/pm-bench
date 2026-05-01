@@ -5,7 +5,7 @@ cases, store the mean wait time. At test time, predict that mean. Falls
 back to the global training mean for transitions never seen during
 training.
 
-Identifies the "obvious" bottlenecks — transitions that were already
+Identifies the "obvious" bottlenecks - transitions that were already
 slow in training. A model that ties this isn't using any new
 information from the test set.
 """

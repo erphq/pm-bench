@@ -3,7 +3,7 @@
 For every (last_activity_in_prefix → case_outcome) pair observed on the
 training cases, store the empirical positive rate. At test time, look
 up the prefix's last activity and return its rate. This is the dumbest
-baseline that uses *any* prefix information — a model that ties this
+baseline that uses *any* prefix information - a model that ties this
 isn't conditioning on the trace at all.
 
 Falls back to the global positive rate when a prefix ends in an

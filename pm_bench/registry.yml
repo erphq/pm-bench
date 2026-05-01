@@ -56,7 +56,7 @@ datasets:
     format: xes
 
   - name: sepsis
-    title: "Sepsis Cases — Event Log"
+    title: "Sepsis Cases - Event Log"
     cases: 1050
     events: 15214
     landing_url: "https://data.4tu.nl/articles/dataset/Sepsis_Cases_-_Event_Log/12707639"

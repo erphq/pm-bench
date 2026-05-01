@@ -3,7 +3,7 @@
 Counts (current_activity → next_activity) transitions on training cases
 only, then ranks candidates by frequency. Falls back to the global
 unigram distribution when a prefix ends in an activity unseen during
-training. No smoothing — the leaderboard reports raw frequencies.
+training. No smoothing - the leaderboard reports raw frequencies.
 
 Why first-order: it's the dumbest model that has any business being on
 the leaderboard, and it sets the floor any "real" sequence model has to

@@ -131,7 +131,7 @@ def test_full_conformance_pipeline(tmp_path: Path) -> None:
     assert 0.0 <= result["precision"] <= 1.0
     assert 0.0 <= result["fscore"] <= 1.0
     # DFG baseline should achieve fitness 1 on synthetic-toy (every test
-    # transition appears at training time too — same path distribution).
+    # transition appears at training time too - same path distribution).
     assert result["fitness"] == 1.0
 
 

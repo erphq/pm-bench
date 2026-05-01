@@ -1,4 +1,4 @@
-"""Conformance task — DFG submission format and helpers.
+"""Conformance task - DFG submission format and helpers.
 
 The submission for `--task conformance` is a JSON file with the model's
 directly-follows graph (DFG):
@@ -9,7 +9,7 @@ Order doesn't matter; duplicates are ignored. The score is a structural
 comparison between the submitted DFG and the DFG observed on the
 held-out partition (fitness × precision → F-score).
 
-This is a deliberately simple conformance metric — alignment-based
+This is a deliberately simple conformance metric - alignment-based
 replay against a Petri net is more principled but needs pm4py. The
 DFG version is enough to anchor the leaderboard and rejects models
 that ignore the data entirely.

@@ -1,4 +1,4 @@
-"""Prefix extraction — the bridge between split and score.
+"""Prefix extraction - the bridge between split and score.
 
 For next-event prediction, every test case of length L generates L-1
 prediction targets: prefixes of length 1..L-1, each paired with the
@@ -25,7 +25,7 @@ condition on prefix length):
 
     case_id,prefix_idx,outcome
 
-— all three formats share `case_id, prefix_idx` so models that handle
+- all three formats share `case_id, prefix_idx` so models that handle
 multiple tasks share most of the loader.
 """
 from __future__ import annotations
@@ -66,7 +66,7 @@ class TimeTarget:
 class OutcomeTarget:
     """Binary outcome prediction target.
 
-    `outcome` is the case's final 0/1 outcome — defined per-dataset
+    `outcome` is the case's final 0/1 outcome - defined per-dataset
     (synthetic-toy: 1 iff the case ends with `delivery_confirmed`).
     The same value is repeated across every prefix of a case so a model
     can score how its prediction sharpens as the prefix grows.
@@ -188,7 +188,7 @@ def extract_outcome_targets(
     `is_positive` is the per-dataset rule that decides a case's outcome
     from its full activity sequence (in chronological order). Targets
     are emitted at every prefix length 1..L-1, all carrying the same
-    case-level outcome — so a model predicts the same target with
+    case-level outcome - so a model predicts the same target with
     progressively more context.
     """
     keep = set(case_ids)

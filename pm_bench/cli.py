@@ -109,7 +109,7 @@ def _outcome_rule(name: str):
 @click.group()
 @click.version_option()
 def main() -> None:
-    """pm-bench — the open process-mining benchmark."""
+    """pm-bench - the open process-mining benchmark."""
 
 
 @main.command(name="list")
@@ -185,7 +185,7 @@ def fetch(name: str, pin: bool) -> None:
             if pin:
                 _print_pin_patch(name, actual)
             elif d.sha256 is None:
-                click.echo("  (registry hash unset — re-run with --pin to emit a patch)")
+                click.echo("  (registry hash unset - re-run with --pin to emit a patch)")
             return
         click.echo(str(exc), err=True)
         sys.exit(2)
@@ -411,7 +411,7 @@ def discover(name: str, split_path: str, out_path: str, baseline: str) -> None:
     """Discover a process model from training cases.
 
     The submission for the conformance task is a model JSON. Today only
-    the DFG baseline ships in-tree — other discoverers (alpha, inductive)
+    the DFG baseline ships in-tree - other discoverers (alpha, inductive)
     can be added behind a `[discovery]` extra without changing the
     submission format.
     """
@@ -438,14 +438,14 @@ def discover(name: str, split_path: str, out_path: str, baseline: str) -> None:
     "--dataset",
     "dataset_name",
     required=False,
-    help="Dataset name (required for --task conformance — used to extract test DFG).",
+    help="Dataset name (required for --task conformance - used to extract test DFG).",
 )
 @click.option(
     "--split",
     "split_path",
     type=click.Path(exists=True, dir_okay=False),
     required=False,
-    help="Split JSON (required for --task conformance — used to identify test cases).",
+    help="Split JSON (required for --task conformance - used to identify test cases).",
 )
 @click.option(
     "--task",
@@ -640,7 +640,7 @@ def leaderboard(
 ) -> None:
     """Print standings for a (task, dataset) pair, optionally rescoring.
 
-    With `--all`, walks every standings file under `leaderboard/` —
+    With `--all`, walks every standings file under `leaderboard/` -
     the lever CI pulls to verify the full repo in one go.
     """
     if do_all:
@@ -659,12 +659,12 @@ def leaderboard(
             try:
                 board = load_board(f)
             except (KeyError, ValueError) as exc:
-                click.echo(f"{f.relative_to(repo_root)}: malformed — {exc}", err=True)
+                click.echo(f"{f.relative_to(repo_root)}: malformed - {exc}", err=True)
                 any_drift = True
                 continue
             drifts = verify(board, repo_root=repo_root) if do_verify else []
             tag = "OK" if not drifts else f"DRIFT ({len(drifts)})"
-            click.echo(f"{board.task}/{board.dataset}: {tag} — {len(board.entries)} entry(ies)")
+            click.echo(f"{board.task}/{board.dataset}: {tag} - {len(board.entries)} entry(ies)")
             for d in drifts:
                 click.echo(f"  {d}", err=True)
                 any_drift = True
@@ -688,7 +688,7 @@ def leaderboard(
             for d in drifts:
                 click.echo(d, err=True)
             sys.exit(2)
-        click.echo(f"verified {len(board.entries)} entr(ies) — no drift")
+        click.echo(f"verified {len(board.entries)} entr(ies) - no drift")
 
     if do_markdown:
         click.echo(board_to_markdown(board))

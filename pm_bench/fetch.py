@@ -2,7 +2,7 @@
 
 The four cases that matter:
 
-1. **Cached + hash matches.** Nothing to do — return the cached path.
+1. **Cached + hash matches.** Nothing to do - return the cached path.
 2. **Cached + hash mismatch.** Loud failure: someone modified the
    archive on disk, or the registry hash is wrong. Either way we
    refuse to proceed silently.
@@ -49,7 +49,7 @@ class HashMismatchError(FetchError):
 
 
 class ManualFetchRequired(FetchError):
-    """Dataset has no `download_url` — user must download + place manually."""
+    """Dataset has no `download_url` - user must download + place manually."""
 
     def __init__(self, dataset: Dataset, expected_path: Path):
         self.dataset = dataset
@@ -84,7 +84,7 @@ def _download(url: str, dest: Path) -> None:
 def ensure_cached(dataset: Dataset, override_root: str | None = None) -> FetchResult:
     """Make `dataset` available on disk, verify hash, return its path.
 
-    Synthetic datasets are rejected — they're generated on demand and
+    Synthetic datasets are rejected - they're generated on demand and
     have no on-disk form.
     """
     if dataset.format == "synthetic":

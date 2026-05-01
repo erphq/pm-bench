@@ -76,7 +76,7 @@ def test_prior_baseline_per_last_activity() -> None:
     """Prefixes ending in 'pay' or 'cancel' get the appropriate rate."""
     model = fit_prior_outcome(_events_with_outcomes(), ["c1", "c2", "c3", "c4"], _is_pay)
     # All training prefixes ending in 'review' come from cases that go on
-    # to either 'pay' or 'cancel' — half of each, so rate = 0.5.
+    # to either 'pay' or 'cancel' - half of each, so rate = 0.5.
     assert abs(model.by_last["review"] - 0.5) < 1e-9
     # Prefix ending in 'start' has the same logic: every case starts.
     assert abs(model.by_last["start"] - 0.5) < 1e-9

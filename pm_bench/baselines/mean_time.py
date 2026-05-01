@@ -2,7 +2,7 @@
 
 For every training prefix, compute the remaining time (days). The
 baseline's prediction for any test prefix is the mean of those
-training remainings — a single global float, no conditioning. It's
+training remainings - a single global float, no conditioning. It's
 the dumbest model that has any business being on the leaderboard;
 anything that loses to it isn't using time information at all.
 """

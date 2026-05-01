@@ -1,6 +1,6 @@
 # Standings
 
-_Auto-generated from `leaderboard/<task>/<dataset>.json` — regenerate with `pm-bench leaderboard --all --markdown > STANDINGS.md`._
+_Auto-generated from `leaderboard/<task>/<dataset>.json` - regenerate with `pm-bench leaderboard --all --markdown > STANDINGS.md`._
 
 ### bottleneck · synthetic-toy
 _NDCG@10 over per-transition wait times (higher is better)_

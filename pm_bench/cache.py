@@ -1,7 +1,7 @@
 """Local cache directory for downloaded event logs.
 
 Datasets land in `$PM_BENCH_CACHE` if set, else `~/.cache/pm-bench/`.
-We never write inside the install tree — the cache survives uninstalls
+We never write inside the install tree - the cache survives uninstalls
 and wheel rebuilds, and a single cache can be shared across virtualenvs.
 
 The on-disk layout is one file per dataset:

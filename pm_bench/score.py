@@ -23,7 +23,7 @@ class RemainingTimeScore:
     """MAE for remaining-time prediction.
 
     `mae_days` is the equally-weighted mean absolute error across all
-    held-out prefixes, in days. We don't case-weight by length —
+    held-out prefixes, in days. We don't case-weight by length -
     every prefix is one prediction, every prediction counts once.
     Reporting `n` lets readers tell which split a number was computed
     against.
@@ -59,7 +59,7 @@ class OutcomeScore:
 
     `auc` is the area under the ROC curve, computed via the rank-sum
     identity (no scipy / sklearn needed). Ties in the score get the
-    average rank — so a model that predicts the same probability for
+    average rank - so a model that predicts the same probability for
     every case scores 0.5 by construction.
     """
 
@@ -120,7 +120,7 @@ class ConformanceScore:
     `fitness` is the fraction of test-case directly-follows transitions
     that exist in the submitted model. `precision` is the fraction of
     model transitions that the test cases actually use. `fscore` is the
-    harmonic mean — 2fp / (f+p).
+    harmonic mean - 2fp / (f+p).
 
     This is a simpler conformance check than alignment-based replay
     (which needs a Petri net + token semantics), but it's enough to
@@ -143,7 +143,7 @@ def score_conformance(
 
     `model_transitions` is the submitted model's directly-follows
     relation (a set of (a, b) pairs). `test_transitions` is the same
-    relation observed on the held-out cases. Both are unweighted —
+    relation observed on the held-out cases. Both are unweighted -
     we measure structural agreement, not frequency.
     """
     n_test = len(test_transitions)
@@ -198,11 +198,11 @@ def score_bottleneck(
     on the held-out partition. We rank truth transitions by predicted
     wait (descending), take the top k, and compute NDCG against the
     ideal ranking (truth sorted descending). Transitions present in
-    truth but missing from predictions are scored 0 — a model that
+    truth but missing from predictions are scored 0 - a model that
     refuses to predict can't claim credit.
     """
     if not truth:
-        raise ValueError("truth is empty — nothing to rank")
+        raise ValueError("truth is empty - nothing to rank")
     if k <= 0:
         raise ValueError("k must be > 0")
 

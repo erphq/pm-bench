@@ -3,13 +3,13 @@
 The on-disk format lives under `leaderboard/<task>/<dataset>.json`.
 Reference predictions ship next to the JSON under
 `leaderboard/predictions/<task>/<dataset>/<model>.csv[.gz]`. Reading
-+ rescoring is pure Python — no torch, no network, deterministic.
++ rescoring is pure Python - no torch, no network, deterministic.
 
 Score drift is the only failure mode: the recorded `score` must match
 what `pm_bench.score.score_next_event` produces today against the
 checked-in predictions and the freshly-extracted prefixes for the
 named dataset. If the model code changes the numbers, the leaderboard
-file changes alongside it — no exceptions.
+file changes alongside it - no exceptions.
 """
 from __future__ import annotations
 
@@ -104,7 +104,7 @@ def _open_predictions(path: Path) -> Iterable[Prediction]:
 def _events_and_test_cases(name: str):
     """Return (events, test_case_ids) for a known dataset.
 
-    Today only `synthetic-toy` is supported — once a real dataset is
+    Today only `synthetic-toy` is supported - once a real dataset is
     pinned this dispatch grows a branch per dataset, gated on the cached
     file's sha256.
     """
@@ -269,7 +269,7 @@ def verify(board: Board, repo_root: str | Path = ".", *, tol: float = 1e-9) -> l
             )
             if not ok:
                 drifts.append(
-                    f"{entry.model}: {k} drift — recorded={recorded} actual={actual}"
+                    f"{entry.model}: {k} drift - recorded={recorded} actual={actual}"
                 )
     return drifts
 
@@ -341,7 +341,7 @@ def all_standings_markdown(repo_root: str | Path = ".") -> str:
     chunks = [
         "# Standings",
         "",
-        "_Auto-generated from `leaderboard/<task>/<dataset>.json` —"
+        "_Auto-generated from `leaderboard/<task>/<dataset>.json` -"
         " regenerate with `pm-bench leaderboard --all --markdown > STANDINGS.md`._",
         "",
     ]

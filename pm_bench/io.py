@@ -23,7 +23,7 @@ TIMESTAMP_ALIASES = {"timestamp", "time:timestamp", "time", "ts"}
 def looks_like_path(name: str) -> bool:
     """Heuristic: treat `name` as a filesystem path, not a registry name.
 
-    We deliberately don't `os.path.exists` first — typos should fail in
+    We deliberately don't `os.path.exists` first - typos should fail in
     the loader with a clear FileNotFoundError, not silently fall through
     to the registry.
     """

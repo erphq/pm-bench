@@ -60,12 +60,12 @@ pm-bench fetch bpi2020 --pin
 
 ## Recently shipped
 
-- **Conformance task — v0.3 closed** (`conformance-task` branch).
-  - `score_conformance` — DFG fitness × precision → F-score. Pure
+- **Conformance task - v0.3 closed** (`conformance-task` branch).
+  - `score_conformance` - DFG fitness × precision → F-score. Pure
     CPython; no pm4py dep.
-  - `pm_bench/conformance.py` — DFG extraction, model JSON r/w. The
+  - `pm_bench/conformance.py` - DFG extraction, model JSON r/w. The
     submission format is a JSON file with a `transitions` list.
-  - `pm-bench discover <name> --baseline dfg --out model.json` —
+  - `pm-bench discover <name> --baseline dfg --out model.json` -
     discovers the DFG from training cases. CLI `score --task
     conformance --dataset NAME --split split.json model.json` runs
     the comparison (the only score path that doesn't take
@@ -77,7 +77,7 @@ pm-bench fetch bpi2020 --pin
     column set; STANDINGS.md regenerated.
   - 11 new tests (`test_conformance.py`); 108 total, ruff clean.
 - **CSV ingest** (`csv-ingest` branch).
-  - `pm_bench/io.py:read_csv_log` — CSV / `.csv.gz` event-log loader
+  - `pm_bench/io.py:read_csv_log` - CSV / `.csv.gz` event-log loader
     that accepts both pm-bench-native column names (`case_id`,
     `activity`, `timestamp`) and PM4Py XES-derived names
     (`case:concept:name`, `concept:name`, `time:timestamp`).
@@ -96,13 +96,13 @@ pm-bench fetch bpi2020 --pin
   - README links to STANDINGS so the headline numbers are one click
     away. v0.4 milestone closed.
 - **Bottleneck task (NDCG@10 over transitions)** (`bottleneck-task` branch).
-  - `score_bottleneck` — pure-CPython NDCG@k with average DCG/IDCG
+  - `score_bottleneck` - pure-CPython NDCG@k with average DCG/IDCG
     discounting. Missing predictions sink to the bottom of the
     ranking (model that refuses to predict can't claim credit).
-  - `pm_bench/bottleneck.py` — per-transition mean-wait targets.
+  - `pm_bench/bottleneck.py` - per-transition mean-wait targets.
     Truth shape is `(activity_a, activity_b, mean_wait_seconds,
-    n_observations)` — different from the per-prefix tasks.
-  - `pm_bench/baselines/mean_wait.py` — train-mean-per-transition
+    n_observations)` - different from the per-prefix tasks.
+  - `pm_bench/baselines/mean_wait.py` - train-mean-per-transition
     with global-mean fallback. On synthetic-toy: NDCG@10 0.9786 over
     6 transitions. Strong floor for any temporal model.
   - CLI: `--task bottleneck`, `--baseline mean-wait`, end-to-end.
@@ -110,17 +110,17 @@ pm-bench fetch bpi2020 --pin
     entry; `pm-bench leaderboard --all --verify` now walks 3 boards.
   - 7 new tests (`test_bottleneck.py`); 86 total, ruff clean.
 - **Outcome task (binary AUC)** (`outcome-task` branch).
-  - `score_outcome` — pure-CPython rank-sum AUC, with average-rank
+  - `score_outcome` - pure-CPython rank-sum AUC, with average-rank
     tie-breaking; degenerate single-class case returns 0.5 by
     convention rather than NaN.
-  - `pm_bench/baselines/prior_outcome.py` — last-activity-conditioned
+  - `pm_bench/baselines/prior_outcome.py` - last-activity-conditioned
     positive rate (with global-rate fallback for unseen activities).
     The dumbest baseline that uses *any* prefix signal.
   - CLI: `--task outcome`, `--baseline prior`, end-to-end through
     `prefixes / predict / score`.
   - Per-dataset outcome rule registered for synthetic-toy
     (`is_positive_outcome`: case ends with `delivery_confirmed`).
-  - **No leaderboard entry yet** — synthetic-toy with seed=42 happens
+  - **No leaderboard entry yet** - synthetic-toy with seed=42 happens
     to have zero positives in the test partition, so AUC degenerates.
     The pipeline runs end-to-end and the test asserts it; a real
     leaderboard entry waits on a pinned BPI dataset.
@@ -128,7 +128,7 @@ pm-bench fetch bpi2020 --pin
 - **Remaining-time task** (`remaining-time` branch).
   - `score_remaining_time` (MAE in days), prefixes/predictions
     formats parallel to next-event so models share a loader.
-  - `pm_bench/baselines/mean_time.py` — mean-of-train reference.
+  - `pm_bench/baselines/mean_time.py` - mean-of-train reference.
     On synthetic-toy: MAE 1.255 days. Floor for any temporal model.
   - CLI: `prefixes`, `predict`, `score` all dispatch on
     `--task {next-event,remaining-time}`. Single command surface,
@@ -153,32 +153,32 @@ pm-bench fetch bpi2020 --pin
   - `leaderboard/next-event/synthetic-toy.json` with the Markov
     reference entry; predictions checked in under
     `leaderboard/predictions/next-event/synthetic-toy/markov-ref.csv.gz`.
-  - `pm_bench/leaderboard.py` — load/rescore/verify/standings, all
+  - `pm_bench/leaderboard.py` - load/rescore/verify/standings, all
     pure CPython; reads gzipped or plain CSV.
-  - CLI: `pm-bench leaderboard <task> <dataset> [--verify]` —
+  - CLI: `pm-bench leaderboard <task> <dataset> [--verify]` -
     pretty-prints standings, optionally re-runs scoring.
   - 8 new tests, including a drift-detection canary that tampers with
     the recorded score and confirms `verify` flags it.
 - **v0.1 fetch + hash machinery** (`dataset-fetch` branch).
-  - `pm_bench/cache.py` — cache root resolution
+  - `pm_bench/cache.py` - cache root resolution
     (`$PM_BENCH_CACHE` → `~/.cache/pm-bench/`), per-dataset path with
     correct extension by format.
-  - `pm_bench/fetch.py` — `ensure_cached(dataset)` covers the four
+  - `pm_bench/fetch.py` - `ensure_cached(dataset)` covers the four
     cases: cached+match, cached+mismatch (loud failure),
     cached+unpinned (returns actual hash), not-cached (auto-download
     if URL set, otherwise raise `ManualFetchRequired`). Streams in
     1 MiB chunks; atomic `.part`-then-rename writes; sha256 verified
     against the registry pin.
-  - CLI `pm-bench fetch <name> [--pin]` — prints status, emits a
+  - CLI `pm-bench fetch <name> [--pin]` - prints status, emits a
     pasteable `registry.yml` patch when `--pin` is set.
   - 13 new tests across `test_cache.py` and `test_fetch.py`. 37 total.
 - **End-to-end loop on synthetic-toy** (`end-to-end-loop` branch,
   PR #2).
-  - `pm_bench/prefixes.py` — extract prediction targets from a split,
+  - `pm_bench/prefixes.py` - extract prediction targets from a split,
     write/read CSV. Skips length-1 cases.
-  - `pm_bench/predictions.py` — predictions CSV format
+  - `pm_bench/predictions.py` - predictions CSV format
     (`case_id,prefix_idx,predictions`).
-  - `pm_bench/baselines/markov.py` — first-order Markov reference
+  - `pm_bench/baselines/markov.py` - first-order Markov reference
     baseline. Trained on the train partition only; falls back to
     unigram for unseen last-activities.
   - CLI gained `prefixes`, `predict`, `score`.
@@ -208,8 +208,8 @@ pm-bench fetch bpi2020 --pin
 
 - The base install does not pull `pm4py`, so XES parsing isn't wired
   yet. Adding a `[bpi]` extra is the right move when we pin the
-  first dataset — keeps `pip install pm-bench` fast for users who
+  first dataset - keeps `pip install pm-bench` fast for users who
   only need scoring.
 - No leaderboard CI yet (v0.4). The file formats are stable, so this
-  is "wire up a workflow that runs `pm-bench score`" — orthogonal to
+  is "wire up a workflow that runs `pm-bench score`" - orthogonal to
   the dataset work.

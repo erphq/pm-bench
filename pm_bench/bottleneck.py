@@ -1,4 +1,4 @@
-"""Bottleneck-detection targets — per-transition mean wait time.
+"""Bottleneck-detection targets - per-transition mean wait time.
 
 Bottleneck is the only v0 task that's *per-transition* rather than
 per-prefix: there's one truth row per ordered (activity_a, activity_b)
@@ -45,7 +45,7 @@ def extract_bottleneck_targets(
 
     For each pair of chronologically-consecutive activities within a
     case, we record the wait time. The yielded targets aggregate
-    across all cases in `case_ids` — one row per distinct (a, b) pair.
+    across all cases in `case_ids` - one row per distinct (a, b) pair.
     """
     keep = set(case_ids)
     by_case: dict[CaseId, list[tuple[Activity, object]]] = {}

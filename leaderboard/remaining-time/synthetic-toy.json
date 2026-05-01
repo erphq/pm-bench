@@ -20,7 +20,7 @@
         "n": 41
       },
       "scored_at": "2026-04-30T00:00:00Z",
-      "notes": "Constant prediction = mean remaining-time observed on training prefixes. The dumbest model that still respects the train/test split — the floor any temporal model must clear."
+      "notes": "Constant prediction = mean remaining-time observed on training prefixes. The dumbest model that still respects the train/test split - the floor any temporal model must clear."
     }
   ]
 }

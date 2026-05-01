@@ -35,7 +35,7 @@ def test_synthetic_toy_board_loads() -> None:
 
 
 def test_markov_ref_has_no_score_drift() -> None:
-    """Recorded score must match a fresh rescore — guards model code."""
+    """Recorded score must match a fresh rescore - guards model code."""
     board = load_board(BOARD_PATH)
     drifts = verify(board, repo_root=REPO_ROOT)
     assert drifts == [], drifts
@@ -166,7 +166,7 @@ def test_checked_in_standings_md_is_up_to_date() -> None:
 
 
 def test_predictions_file_is_readable_gz() -> None:
-    """The reference predictions must be a real gzip — not a placeholder."""
+    """The reference predictions must be a real gzip - not a placeholder."""
     p = (
         REPO_ROOT
         / "leaderboard"
