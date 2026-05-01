@@ -51,7 +51,7 @@ state of the art.
 | Task | Metric | What you predict |
 |---|---|---|
 | Next-event prediction | top-1 / top-3 accuracy | Activity at position `k+1` given prefix of length `k` |
-| Remaining-time prediction | MAE in days, weighted by case length | Time from now to case completion |
+| Remaining-time prediction | MAE in days (per-prefix, equally weighted) | Time from now to case completion |
 | Outcome prediction | AUC | Binary outcome (e.g., "loan approved" / "case escalated") |
 | Conformance checking | F-score (fitness × precision) | How well a discovered model fits held-out cases |
 | Bottleneck detection | NDCG@10 | Rank of transitions by held-out wait time |
@@ -99,6 +99,14 @@ hash before scoring - if you've subtly modified the file, you'll know.
 We don't host the datasets ourselves; we fetch from the canonical URLs
 and cache locally. Datasets carry their original licenses (linked in
 `datasets/registry.yml`).
+
+> **Status of the seven datasets above:** the fetch + sha256 + cache
+> machinery ships in this repo, but each dataset's hash pin is gated on
+> a one-time interactive TOS acceptance at 4TU / Mendeley. Until that
+> manual step is done per dataset, only `synthetic-toy` (bundled) and
+> arbitrary user CSVs run through the pipeline end-to-end. `pm-bench
+> fetch <name>` walks you through the manual step and the registry PR
+> when you're ready.
 
 ## ✦ Install & use
 

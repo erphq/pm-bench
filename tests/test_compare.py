@@ -84,7 +84,7 @@ def test_cli_compare_smoke(tmp_path: Path) -> None:
     )
 
 
-def test_cli_compare_different_tasks_exits_nonzero() -> None:
+def test_cli_compare_different_tasks_exits_runtime() -> None:
     runner = CliRunner()
     r = runner.invoke(
         main,
@@ -94,5 +94,5 @@ def test_cli_compare_different_tasks_exits_nonzero() -> None:
             str(REPO_ROOT / "leaderboard" / "outcome" / "synthetic-toy.json"),
         ],
     )
-    assert r.exit_code == 1
+    assert r.exit_code == 2  # runtime error post-arg-validation
     assert "can't compare" in r.output

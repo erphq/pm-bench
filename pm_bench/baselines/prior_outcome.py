@@ -101,11 +101,13 @@ def write_outcome_predictions_csv(
     predictions: Iterable[OutcomePrediction],
     path: str,
 ) -> int:
-    """Write outcome predictions to CSV. Returns row count."""
+    """Write outcome predictions to CSV (plain or `.gz`). Returns row count."""
     import csv
 
+    from pm_bench.predictions import _open_text
+
     n = 0
-    with open(path, "w", newline="") as f:
+    with _open_text(path, "wt") as f:
         w = csv.writer(f)
         w.writerow(["case_id", "prefix_idx", "score"])
         for p in predictions:
@@ -115,11 +117,13 @@ def write_outcome_predictions_csv(
 
 
 def read_outcome_predictions_csv(path: str) -> list[OutcomePrediction]:
-    """Read an outcome predictions CSV."""
+    """Read an outcome predictions CSV (plain or `.gz`)."""
     import csv
 
+    from pm_bench.predictions import _open_text
+
     out: list[OutcomePrediction] = []
-    with open(path, newline="") as f:
+    with _open_text(path) as f:
         r = csv.DictReader(f)
         for row in r:
             out.append(

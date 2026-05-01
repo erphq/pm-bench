@@ -492,10 +492,9 @@ def discover(name: str, split_path: str, out_path: str, baseline: str) -> None:
         split_data = json.load(f)
     if baseline == "dfg":
         dfg = extract_dfg(events, split_data["train"])
-    elif baseline == "empty":
-        dfg = set()
     else:
-        raise click.UsageError(f"unknown discoverer: {baseline}")
+        # `empty`. Click's Choice rejects anything else upstream.
+        dfg = set()
     n = write_model_json(dfg, out_path)
     click.echo(f"wrote model with {n} transitions to {out_path} (baseline={baseline})")
 
@@ -539,6 +538,24 @@ def score(
 ) -> None:
     """Score predictions against the truth file (or, for conformance, against
     the test-partition DFG of a named dataset)."""
+    try:
+        _score_dispatch(predictions_path, prefixes_path, dataset_name, split_path, task)
+    except (KeyError, ValueError) as exc:
+        # KeyError → predictions CSV is missing a required column.
+        # ValueError → score function rejected the inputs (length
+        # mismatch, empty truth, malformed conformance JSON, etc.).
+        # In either case it's a clean runtime error, exit 2.
+        click.echo(str(exc), err=True)
+        sys.exit(2)
+
+
+def _score_dispatch(
+    predictions_path: str,
+    prefixes_path: str | None,
+    dataset_name: str | None,
+    split_path: str | None,
+    task: str,
+) -> None:
     if task == "conformance":
         if not dataset_name or not split_path:
             click.echo(
@@ -719,9 +736,6 @@ def leaderboard(
     the lever CI pulls to verify the full repo in one go.
     """
     if do_all:
-        if do_markdown:
-            click.echo(all_standings_markdown(repo_root=repo_root), nl=False)
-            return
         from pathlib import Path
 
         root = Path(repo_root) / "leaderboard"
@@ -729,21 +743,45 @@ def leaderboard(
         if not files:
             click.echo(f"no leaderboard files under {root}", err=True)
             sys.exit(1)
-        any_drift = False
+        # If --markdown is set we still honour --verify: the user may want
+        # both the rendered table AND a hard failure on drift. Verify runs
+        # first so a drift exit happens before any markdown is printed.
+        if do_verify:
+            any_drift = False
+            for f in files:
+                try:
+                    board = load_board(f)
+                except (KeyError, ValueError) as exc:
+                    click.echo(f"{f.relative_to(repo_root)}: malformed - {exc}", err=True)
+                    any_drift = True
+                    continue
+                drifts = verify(board, repo_root=repo_root)
+                if not do_markdown:
+                    tag = "OK" if not drifts else f"DRIFT ({len(drifts)})"
+                    click.echo(
+                        f"{board.task}/{board.dataset}: {tag} - {len(board.entries)} entry(ies)"
+                    )
+                for d in drifts:
+                    click.echo(f"  {d}", err=True)
+                    any_drift = True
+            if any_drift:
+                sys.exit(2)
+            if do_markdown:
+                click.echo(all_standings_markdown(repo_root=repo_root), nl=False)
+            return
+        if do_markdown:
+            click.echo(all_standings_markdown(repo_root=repo_root), nl=False)
+            return
         for f in files:
             try:
                 board = load_board(f)
             except (KeyError, ValueError) as exc:
                 click.echo(f"{f.relative_to(repo_root)}: malformed - {exc}", err=True)
-                any_drift = True
                 continue
-            drifts = verify(board, repo_root=repo_root) if do_verify else []
-            tag = "OK" if not drifts else f"DRIFT ({len(drifts)})"
-            click.echo(f"{board.task}/{board.dataset}: {tag} - {len(board.entries)} entry(ies)")
-            for d in drifts:
-                click.echo(f"  {d}", err=True)
-                any_drift = True
-        sys.exit(2 if any_drift else 0)
+            click.echo(
+                f"{board.task}/{board.dataset}: OK - {len(board.entries)} entry(ies)"
+            )
+        return
 
     if not task or not dataset:
         click.echo("usage: pm-bench leaderboard <task> <dataset> [--verify]  OR  --all", err=True)
@@ -824,9 +862,9 @@ def validate(board_path: str, repo_root: str, no_rescore: bool) -> None:
     structural schema validation, then a fresh rescore against the
     referenced predictions. `--no-rescore` for a fast schema-only check.
     """
-    import json as _json
+    from pathlib import Path as _Path
 
-    raw = _json.loads(open(board_path).read())  # noqa: SIM115
+    raw = json.loads(_Path(board_path).read_text())
     schema_errors = validate_board(raw)
     if schema_errors:
         for e in schema_errors:
@@ -837,6 +875,9 @@ def validate(board_path: str, repo_root: str, no_rescore: bool) -> None:
         click.echo(f"{board_path}: schema OK ({len(raw['entries'])} entr(ies))")
         return
 
+    # `load_board` re-parses the JSON we already have in `raw`. Pay that
+    # cost once — the file is small and the alternative is leaking the
+    # Board construction into this command.
     board = load_board(board_path)
     drifts = verify(board, repo_root=repo_root)
     if drifts:
@@ -862,8 +903,11 @@ def compare(board_a: str, board_b: str) -> None:
     try:
         result = compare_boards(a, b)
     except ValueError as exc:
+        # Runtime mismatch (different (task, dataset) on the two files)
+        # → exit 2 per the convention in cli.py: 1 for usage / not-found,
+        # 2 for runtime errors after args are accepted.
         click.echo(str(exc), err=True)
-        sys.exit(1)
+        sys.exit(2)
     click.echo(json.dumps(result, indent=2))
 
 

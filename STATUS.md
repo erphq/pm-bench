@@ -60,6 +60,41 @@ pm-bench fetch bpi2020 --pin
 
 ## Recently shipped
 
+- **Audit cleanup** (`audit-cleanup` branch).
+  Independent agent reviewed 22 stacked PRs and surfaced 20 issues; this
+  PR fixes the 14 high-priority ones:
+  - `extract_prefixes` / `extract_remaining_time_targets` /
+    `extract_outcome_targets` now sort `case_ids` before iterating, so
+    regenerating reference predictions produces byte-identical output
+    (was non-deterministic via `set` iteration order). All 8
+    checked-in `.csv.gz` files regenerated against the new order.
+  - One shared `_open_text(path)` helper in `predictions.py` handles
+    `.gz` transparently. Every CSV reader/writer in `pm_bench/`
+    routes through it, including `read_predictions_csv` itself, which
+    means `pm-bench score predictions.csv.gz` now works end-to-end —
+    matching what CONTRIBUTING.md has claimed all along.
+  - `leaderboard.py` `_rescore_*` helpers no longer have a parallel
+    `gzip.open` codepath; they call the shared readers, so the score
+    CLI and the rescore path are guaranteed to read predictions
+    identically.
+  - `read_csv_log` strips UTF-8 BOMs (`utf-8-sig`) and normalizes
+    away tzinfo so mixed-tz CSVs don't blow up downstream.
+  - `pm-bench score` wraps its body in one `try/except` so KeyError
+    (bad predictions header) and ValueError (length mismatch, bad
+    model JSON) all exit 2 with a clean message, regardless of task.
+  - `pm-bench compare` now exits 2 (not 1) on cross-task comparisons.
+  - `pm-bench leaderboard --all --markdown --verify` now actually
+    runs verify before printing markdown — was silently skipping.
+  - `pm-bench validate` reads its file once via `Path.read_text`.
+  - README "MAE weighted by case length" claim was wrong (the code
+    is per-prefix equally weighted) — fixed.
+  - README "Datasets" table now carries an explicit status note that
+    the seven public logs need a one-time TOS-gated fetch first.
+  - Tests added: drift on `entries[1]` (multi-entry blind spot was
+    real), `--baseline X --task Y` mismatch errors (4 paths), score
+    CLI missing-rows + malformed-header + bad model JSON, `--all
+    --markdown --verify` interaction, BOM CSV, mixed-tz CSV, gz
+    score path. 157 total, ruff clean.
 - **Floor baselines on outcome + bottleneck — every board multi-entry**
   (`last-two-floors` branch).
   - `global` for outcome: predicts the training positive rate for

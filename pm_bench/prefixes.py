@@ -95,7 +95,11 @@ def extract_prefixes(
             continue
         by_case.setdefault(case_id, []).append((activity, ts))
 
-    for case_id in keep:
+    # `sorted(keep)` is the deterministic-bytes lever: set iteration order
+    # depends on PYTHONHASHSEED and the resulting CSV layout would diff
+    # across regeneration runs. Scores are invariant to row order; bytes
+    # aren't, so we sort.
+    for case_id in sorted(keep):
         rows = by_case.get(case_id)
         if not rows or len(rows) < 2:
             continue
@@ -111,11 +115,13 @@ def extract_prefixes(
 
 
 def write_prefixes_csv(prefixes: Iterable[Prefix], path: str) -> int:
-    """Write prefixes to a CSV file. Returns the number of rows."""
+    """Write prefixes to a CSV file (plain or `.gz`). Returns the number of rows."""
     import csv
 
+    from pm_bench.predictions import _open_text
+
     n = 0
-    with open(path, "w", newline="") as f:
+    with _open_text(path, "wt") as f:
         w = csv.writer(f)
         w.writerow(["case_id", "prefix_idx", "prefix", "true_next"])
         for p in prefixes:
@@ -125,11 +131,13 @@ def write_prefixes_csv(prefixes: Iterable[Prefix], path: str) -> int:
 
 
 def read_prefixes_csv(path: str) -> list[Prefix]:
-    """Read a prefixes CSV emitted by `write_prefixes_csv`."""
+    """Read a prefixes CSV emitted by `write_prefixes_csv` (plain or `.gz`)."""
     import csv
 
+    from pm_bench.predictions import _open_text
+
     out: list[Prefix] = []
-    with open(path, newline="") as f:
+    with _open_text(path) as f:
         r = csv.DictReader(f)
         for row in r:
             prefix_str = row["prefix"]
@@ -162,7 +170,11 @@ def extract_remaining_time_targets(
             continue
         by_case.setdefault(case_id, []).append((activity, ts))
 
-    for case_id in keep:
+    # `sorted(keep)` is the deterministic-bytes lever: set iteration order
+    # depends on PYTHONHASHSEED and the resulting CSV layout would diff
+    # across regeneration runs. Scores are invariant to row order; bytes
+    # aren't, so we sort.
+    for case_id in sorted(keep):
         rows = by_case.get(case_id)
         if not rows or len(rows) < 2:
             continue
@@ -198,7 +210,11 @@ def extract_outcome_targets(
             continue
         by_case.setdefault(case_id, []).append((activity, ts))
 
-    for case_id in keep:
+    # `sorted(keep)` is the deterministic-bytes lever: set iteration order
+    # depends on PYTHONHASHSEED and the resulting CSV layout would diff
+    # across regeneration runs. Scores are invariant to row order; bytes
+    # aren't, so we sort.
+    for case_id in sorted(keep):
         rows = by_case.get(case_id)
         if not rows or len(rows) < 2:
             continue
@@ -210,11 +226,13 @@ def extract_outcome_targets(
 
 
 def write_outcome_targets_csv(targets: Iterable[OutcomeTarget], path: str) -> int:
-    """Write outcome targets to a CSV file. Returns the number of rows."""
+    """Write outcome targets to a CSV file (plain or `.gz`)."""
     import csv
 
+    from pm_bench.predictions import _open_text
+
     n = 0
-    with open(path, "w", newline="") as f:
+    with _open_text(path, "wt") as f:
         w = csv.writer(f)
         w.writerow(["case_id", "prefix_idx", "outcome"])
         for t in targets:
@@ -224,11 +242,13 @@ def write_outcome_targets_csv(targets: Iterable[OutcomeTarget], path: str) -> in
 
 
 def read_outcome_targets_csv(path: str) -> list[OutcomeTarget]:
-    """Read an outcome-targets CSV emitted by `write_outcome_targets_csv`."""
+    """Read an outcome-targets CSV (plain or `.gz`)."""
     import csv
 
+    from pm_bench.predictions import _open_text
+
     out: list[OutcomeTarget] = []
-    with open(path, newline="") as f:
+    with _open_text(path) as f:
         r = csv.DictReader(f)
         for row in r:
             out.append(
@@ -242,11 +262,13 @@ def read_outcome_targets_csv(path: str) -> list[OutcomeTarget]:
 
 
 def write_time_targets_csv(targets: Iterable[TimeTarget], path: str) -> int:
-    """Write remaining-time targets to a CSV file. Returns the number of rows."""
+    """Write remaining-time targets to a CSV file (plain or `.gz`)."""
     import csv
 
+    from pm_bench.predictions import _open_text
+
     n = 0
-    with open(path, "w", newline="") as f:
+    with _open_text(path, "wt") as f:
         w = csv.writer(f)
         w.writerow(["case_id", "prefix_idx", "remaining_days"])
         for t in targets:
@@ -256,11 +278,13 @@ def write_time_targets_csv(targets: Iterable[TimeTarget], path: str) -> int:
 
 
 def read_time_targets_csv(path: str) -> list[TimeTarget]:
-    """Read a remaining-time CSV emitted by `write_time_targets_csv`."""
+    """Read a remaining-time CSV (plain or `.gz`)."""
     import csv
 
+    from pm_bench.predictions import _open_text
+
     out: list[TimeTarget] = []
-    with open(path, newline="") as f:
+    with _open_text(path) as f:
         r = csv.DictReader(f)
         for row in r:
             out.append(

@@ -76,11 +76,13 @@ def extract_bottleneck_targets(
 def write_bottleneck_targets_csv(
     targets: Iterable[BottleneckTarget], path: str
 ) -> int:
-    """Write bottleneck targets to a CSV file."""
+    """Write bottleneck targets to a CSV file (plain or `.gz`)."""
     import csv
 
+    from pm_bench.predictions import _open_text
+
     n = 0
-    with open(path, "w", newline="") as f:
+    with _open_text(path, "wt") as f:
         w = csv.writer(f)
         w.writerow(["activity_a", "activity_b", "mean_wait_seconds", "n_observations"])
         for t in targets:
@@ -90,11 +92,13 @@ def write_bottleneck_targets_csv(
 
 
 def read_bottleneck_targets_csv(path: str) -> list[BottleneckTarget]:
-    """Read a bottleneck-targets CSV."""
+    """Read a bottleneck-targets CSV (plain or `.gz`)."""
     import csv
 
+    from pm_bench.predictions import _open_text
+
     out: list[BottleneckTarget] = []
-    with open(path, newline="") as f:
+    with _open_text(path) as f:
         r = csv.DictReader(f)
         for row in r:
             out.append(
@@ -111,11 +115,13 @@ def read_bottleneck_targets_csv(path: str) -> list[BottleneckTarget]:
 def write_bottleneck_predictions_csv(
     predictions: Iterable[BottleneckPrediction], path: str
 ) -> int:
-    """Write bottleneck predictions to a CSV file."""
+    """Write bottleneck predictions to a CSV file (plain or `.gz`)."""
     import csv
 
+    from pm_bench.predictions import _open_text
+
     n = 0
-    with open(path, "w", newline="") as f:
+    with _open_text(path, "wt") as f:
         w = csv.writer(f)
         w.writerow(["activity_a", "activity_b", "predicted_wait_seconds"])
         for p in predictions:
@@ -125,11 +131,13 @@ def write_bottleneck_predictions_csv(
 
 
 def read_bottleneck_predictions_csv(path: str) -> list[BottleneckPrediction]:
-    """Read a bottleneck-predictions CSV."""
+    """Read a bottleneck-predictions CSV (plain or `.gz`)."""
     import csv
 
+    from pm_bench.predictions import _open_text
+
     out: list[BottleneckPrediction] = []
-    with open(path, newline="") as f:
+    with _open_text(path) as f:
         r = csv.DictReader(f)
         for row in r:
             out.append(

@@ -57,11 +57,19 @@ def read_csv_log(path: str | Path) -> list[Event]:
     The CSV must have a header. Columns are matched by name (PM4Py
     aliases supported). Timestamps are parsed via `datetime.fromisoformat`,
     which accepts ISO 8601 with seconds precision.
+
+    Tolerates UTF-8 BOM (Excel-exported CSVs). Mixed tz-aware /
+    tz-naive timestamps are normalized to naive — we don't model
+    timezones, only relative ordering and durations.
     """
     p = Path(path)
     opener = gzip.open if str(p).endswith(".gz") else open
     out: list[Event] = []
-    with opener(p, "rt", newline="") as f:
+    # `utf-8-sig` strips a leading BOM if present; otherwise behaves
+    # like utf-8. Without this, an Excel-style BOM makes the first
+    # column read back as `﻿case_id` and the alias resolution
+    # fails with a misleading "missing case_id" error.
+    with opener(p, "rt", newline="", encoding="utf-8-sig") as f:
         reader = csv.DictReader(f)
         if reader.fieldnames is None:
             raise ValueError(f"{path}: CSV is empty or missing a header")
@@ -71,5 +79,10 @@ def read_csv_log(path: str | Path) -> list[Event]:
                 ts = datetime.fromisoformat(row[ts_col])
             except (KeyError, ValueError) as exc:
                 raise ValueError(f"{path}:{i}: bad timestamp {row.get(ts_col)!r}") from exc
+            # Normalize away any tzinfo so a CSV mixing aware + naive
+            # rows doesn't blow up later when we subtract two timestamps
+            # in a split or duration calc.
+            if ts.tzinfo is not None:
+                ts = ts.replace(tzinfo=None)
             out.append((row[case_col], row[act_col], ts))
     return out

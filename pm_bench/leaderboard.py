@@ -13,19 +13,21 @@ file changes alongside it - no exceptions.
 """
 from __future__ import annotations
 
-import csv
-import gzip
 import json
 import math
-from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 
-from pm_bench.bottleneck import BottleneckTarget, extract_bottleneck_targets
+from pm_bench.baselines.mean_time import read_time_predictions_csv
+from pm_bench.baselines.prior_outcome import read_outcome_predictions_csv
+from pm_bench.bottleneck import (
+    BottleneckTarget,
+    extract_bottleneck_targets,
+    read_bottleneck_predictions_csv,
+)
 from pm_bench.conformance import extract_dfg, read_model_json
-from pm_bench.predictions import Prediction
+from pm_bench.predictions import read_predictions_csv
 from pm_bench.prefixes import (
-    PREFIX_SEP,
     OutcomeTarget,
     Prefix,
     TimeTarget,
@@ -89,21 +91,6 @@ def load_board(path: str | Path) -> Board:
     )
 
 
-def _open_predictions(path: Path) -> Iterable[Prediction]:
-    """Yield Prediction rows from a (gzipped or plain) CSV file."""
-    opener = gzip.open if str(path).endswith(".gz") else open
-    with opener(path, "rt", newline="") as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            ranked_str = row["predictions"]
-            ranked = tuple(ranked_str.split(PREFIX_SEP)) if ranked_str else ()
-            yield Prediction(
-                case_id=row["case_id"],
-                prefix_idx=int(row["prefix_idx"]),
-                ranked=ranked,
-            )
-
-
 def _events_and_test_cases(name: str):
     """Return (events, test_case_ids) for a known dataset.
 
@@ -159,6 +146,13 @@ def _outcome_truth_for_dataset(name: str) -> list[OutcomeTarget]:
     )
 
 
+def _missing_targets_error(model: str, missing: list) -> ValueError:
+    return ValueError(
+        f"{model}: predictions missing {len(missing)} target(s); "
+        f"first missing {missing[0]}"
+    )
+
+
 def _rescore_next_event(board: Board, repo_root: Path) -> list[tuple[Entry, dict]]:
     truth = _truth_for_dataset(board.dataset)
     truth_keys = [(t.case_id, t.prefix_idx) for t in truth]
@@ -169,14 +163,11 @@ def _rescore_next_event(board: Board, repo_root: Path) -> list[tuple[Entry, dict
         pred_path = repo_root / entry.predictions_path
         pred_lookup = {
             (p.case_id, p.prefix_idx): list(p.ranked)
-            for p in _open_predictions(pred_path)
+            for p in read_predictions_csv(str(pred_path))
         }
         missing = [k for k in truth_keys if k not in pred_lookup]
         if missing:
-            raise ValueError(
-                f"{entry.model}: predictions missing {len(missing)} target(s); "
-                f"first missing {missing[0]}"
-            )
+            raise _missing_targets_error(entry.model, missing)
         ranked = [pred_lookup[k] for k in truth_keys]
         s = score_next_event(ranked, truth_next)
         out.append((entry, {"top1": s.top1, "top3": s.top3, "n": s.n}))
@@ -184,9 +175,6 @@ def _rescore_next_event(board: Board, repo_root: Path) -> list[tuple[Entry, dict
 
 
 def _rescore_remaining_time(board: Board, repo_root: Path) -> list[tuple[Entry, dict]]:
-    import csv
-    import gzip
-
     truth = _time_truth_for_dataset(board.dataset)
     truth_keys = [(t.case_id, t.prefix_idx) for t in truth]
     truth_floats = [t.remaining_days for t in truth]
@@ -194,18 +182,13 @@ def _rescore_remaining_time(board: Board, repo_root: Path) -> list[tuple[Entry, 
     out: list[tuple[Entry, dict]] = []
     for entry in board.entries:
         pred_path = repo_root / entry.predictions_path
-        opener = gzip.open if str(pred_path).endswith(".gz") else open
-        pred_lookup: dict[tuple[str, int], float] = {}
-        with opener(pred_path, "rt", newline="") as f:
-            reader = csv.DictReader(f)
-            for row in reader:
-                pred_lookup[(row["case_id"], int(row["prefix_idx"]))] = float(row["predicted_days"])
+        pred_lookup = {
+            (p.case_id, p.prefix_idx): p.predicted_days
+            for p in read_time_predictions_csv(str(pred_path))
+        }
         missing = [k for k in truth_keys if k not in pred_lookup]
         if missing:
-            raise ValueError(
-                f"{entry.model}: predictions missing {len(missing)} target(s); "
-                f"first missing {missing[0]}"
-            )
+            raise _missing_targets_error(entry.model, missing)
         preds = [pred_lookup[k] for k in truth_keys]
         s = score_remaining_time(preds, truth_floats)
         out.append((entry, {"mae_days": s.mae_days, "n": s.n}))
@@ -213,23 +196,16 @@ def _rescore_remaining_time(board: Board, repo_root: Path) -> list[tuple[Entry, 
 
 
 def _rescore_bottleneck(board: Board, repo_root: Path) -> list[tuple[Entry, dict]]:
-    import csv
-    import gzip
-
     truth = _bottleneck_truth_for_dataset(board.dataset)
     truth_dict = {(t.activity_a, t.activity_b): t.mean_wait_seconds for t in truth}
 
     out: list[tuple[Entry, dict]] = []
     for entry in board.entries:
         pred_path = repo_root / entry.predictions_path
-        opener = gzip.open if str(pred_path).endswith(".gz") else open
-        pred_dict: dict[tuple[str, str], float] = {}
-        with opener(pred_path, "rt", newline="") as f:
-            reader = csv.DictReader(f)
-            for row in reader:
-                pred_dict[(row["activity_a"], row["activity_b"])] = float(
-                    row["predicted_wait_seconds"]
-                )
+        pred_dict = {
+            (p.activity_a, p.activity_b): p.predicted_wait_seconds
+            for p in read_bottleneck_predictions_csv(str(pred_path))
+        }
         s = score_bottleneck(pred_dict, truth_dict, k=10)
         out.append(
             (
@@ -265,9 +241,6 @@ def _rescore_conformance(board: Board, repo_root: Path) -> list[tuple[Entry, dic
 
 
 def _rescore_outcome(board: Board, repo_root: Path) -> list[tuple[Entry, dict]]:
-    import csv
-    import gzip
-
     truth = _outcome_truth_for_dataset(board.dataset)
     truth_keys = [(t.case_id, t.prefix_idx) for t in truth]
     truth_int = [t.outcome for t in truth]
@@ -275,18 +248,13 @@ def _rescore_outcome(board: Board, repo_root: Path) -> list[tuple[Entry, dict]]:
     out: list[tuple[Entry, dict]] = []
     for entry in board.entries:
         pred_path = repo_root / entry.predictions_path
-        opener = gzip.open if str(pred_path).endswith(".gz") else open
-        pred_lookup: dict[tuple[str, int], float] = {}
-        with opener(pred_path, "rt", newline="") as f:
-            reader = csv.DictReader(f)
-            for row in reader:
-                pred_lookup[(row["case_id"], int(row["prefix_idx"]))] = float(row["score"])
+        pred_lookup = {
+            (p.case_id, p.prefix_idx): p.score
+            for p in read_outcome_predictions_csv(str(pred_path))
+        }
         missing = [k for k in truth_keys if k not in pred_lookup]
         if missing:
-            raise ValueError(
-                f"{entry.model}: predictions missing {len(missing)} target(s); "
-                f"first missing {missing[0]}"
-            )
+            raise _missing_targets_error(entry.model, missing)
         preds = [pred_lookup[k] for k in truth_keys]
         s = score_outcome(preds, truth_int)
         out.append((entry, {"auc": s.auc, "n": s.n, "n_pos": s.n_pos}))

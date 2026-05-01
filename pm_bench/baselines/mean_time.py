@@ -58,11 +58,13 @@ def predict_mean_time(
 
 
 def write_time_predictions_csv(predictions: Iterable[TimePrediction], path: str) -> int:
-    """Write remaining-time predictions to CSV. Returns row count."""
+    """Write remaining-time predictions to CSV (plain or `.gz`). Returns row count."""
     import csv
 
+    from pm_bench.predictions import _open_text
+
     n = 0
-    with open(path, "w", newline="") as f:
+    with _open_text(path, "wt") as f:
         w = csv.writer(f)
         w.writerow(["case_id", "prefix_idx", "predicted_days"])
         for p in predictions:
@@ -72,11 +74,13 @@ def write_time_predictions_csv(predictions: Iterable[TimePrediction], path: str)
 
 
 def read_time_predictions_csv(path: str) -> list[TimePrediction]:
-    """Read a remaining-time predictions CSV."""
+    """Read a remaining-time predictions CSV (plain or `.gz`)."""
     import csv
 
+    from pm_bench.predictions import _open_text
+
     out: list[TimePrediction] = []
-    with open(path, newline="") as f:
+    with _open_text(path) as f:
         r = csv.DictReader(f)
         for row in r:
             out.append(

@@ -113,3 +113,64 @@ def test_synthetic_seed_bad_int_fails_clearly() -> None:
     r = runner.invoke(main, ["split", "synthetic-toy@not-an-int"])
     assert r.exit_code == 1
     assert "bad seed" in r.output
+
+
+def test_read_csv_log_strips_utf8_bom(tmp_path: Path) -> None:
+    """Excel-exported CSVs carry a UTF-8 BOM; column resolution must
+    still find `case_id` rather than getting `\\ufeffcase_id`."""
+    p = tmp_path / "bom.csv"
+    p.write_bytes(
+        b"\xef\xbb\xbfcase_id,activity,timestamp\n"
+        b"c1,a,2024-01-01T00:00:00\n"
+    )
+    events = read_csv_log(p)
+    assert events == [("c1", "a", events[0][2])]
+
+
+def test_read_csv_log_normalizes_tz_aware_timestamps(tmp_path: Path) -> None:
+    """Mixed tz-aware + tz-naive rows must not blow up downstream."""
+    p = tmp_path / "tz.csv"
+    p.write_text(
+        "case_id,activity,timestamp\n"
+        "c1,a,2024-01-01T00:00:00+00:00\n"
+        "c1,b,2024-01-01T01:00:00\n"
+    )
+    events = read_csv_log(p)
+    assert len(events) == 2
+    # All timestamps should be naive after normalization, so subtraction works.
+    assert events[1][2] - events[0][2]
+    assert all(e[2].tzinfo is None for e in events)
+
+
+def test_cli_score_reads_gzipped_predictions(tmp_path: Path) -> None:
+    """`pm-bench score` must accept .csv.gz inputs (matches checked-in
+    leaderboard predictions and CONTRIBUTING.md)."""
+    runner = CliRunner()
+    split_path = tmp_path / "split.json"
+    prefixes_path = tmp_path / "prefixes.csv"
+    preds_path = tmp_path / "predictions.csv.gz"
+
+    r = runner.invoke(main, ["split", "synthetic-toy"])
+    assert r.exit_code == 0
+    split_path.write_text(r.output)
+
+    r = runner.invoke(
+        main,
+        ["prefixes", "synthetic-toy", "--split", str(split_path), "--out", str(prefixes_path)],
+    )
+    assert r.exit_code == 0
+    r = runner.invoke(
+        main,
+        [
+            "predict", "synthetic-toy", "--split", str(split_path),
+            "--prefixes", str(prefixes_path), "--out", str(preds_path),
+            "--baseline", "markov",
+        ],
+    )
+    assert r.exit_code == 0
+    r = runner.invoke(
+        main,
+        ["score", str(preds_path), "--prefixes", str(prefixes_path)],
+    )
+    assert r.exit_code == 0, r.output
+    assert "top1" in r.output

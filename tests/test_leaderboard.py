@@ -70,6 +70,24 @@ def test_verify_detects_drift(tmp_path) -> None:
     assert any("top1 drift" in d for d in drifts)
 
 
+def test_verify_detects_drift_on_second_entry(tmp_path) -> None:
+    """Verify must catch drift even when only entries[1:] is tampered.
+
+    Earlier tests only ever mutated entries[0]; if `verify` ever
+    short-circuited on the first entry, that bug would slip through.
+    Every board now has ≥ 2 entries, so this is exercisable."""
+    src = json.loads(BOARD_PATH.read_text())
+    assert len(src["entries"]) >= 2, "test assumes board has 2+ entries"
+    src["entries"][-1]["score"]["top1"] = 0.111
+    fake = tmp_path / "fake.json"
+    fake.write_text(json.dumps(src))
+    board = load_board(fake)
+    drifts = verify(board, repo_root=REPO_ROOT)
+    assert any("top1 drift" in d for d in drifts)
+    # And the drift message names the second entry, not the first.
+    assert any(src["entries"][-1]["model"] in d for d in drifts)
+
+
 def test_cli_leaderboard_verify_passes() -> None:
     """`pm-bench leaderboard ... --verify` must exit 0 and report 'no drift'."""
     runner = CliRunner()
