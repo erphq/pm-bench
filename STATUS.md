@@ -60,6 +60,13 @@ pm-bench fetch bpi2020 --pin
 
 ## Recently shipped
 
+- **`pm-bench stats <name>`** (`stats-command` branch).
+  - One-shot summary stats for any log: n_cases, n_events,
+    n_activities, time span, mean/median case length, top-N
+    activities and transitions.
+  - Pure CPython; works on synthetic-toy and any CSV path the
+    existing `_load_events` accepts.
+  - 7 new tests; 116 total.
 - **Synthetic-toy bumped to 200 cases — outcome row finally lands**
   (`synthetic-200` branch).
   - `synthetic_log()` default `n_cases` = 200 (was 50). Test partition

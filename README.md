@@ -120,6 +120,9 @@ The full loop (`split → prefixes → predict → score`) runs end-to-end on
 `synthetic-toy` today; it's covered by `tests/test_e2e.py` and locks
 the file formats the leaderboard depends on.
 
+**Inspect any log.** `pm-bench stats <name-or-path>` prints n_cases /
+n_events / activity-distribution / top transitions in one shot.
+
 **Bring your own CSV.** Any path-like argument is loaded as an event
 log directly, no registry plumbing needed:
 

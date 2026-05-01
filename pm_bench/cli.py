@@ -63,6 +63,7 @@ from pm_bench.score import (
     score_remaining_time,
 )
 from pm_bench.split import case_chrono_split
+from pm_bench.stats import summarize
 
 
 def _load_events(name: str) -> list:
@@ -207,6 +208,43 @@ def _print_pin_patch(name: str, digest: str) -> None:
     click.echo("# paste under the matching dataset entry in pm_bench/registry.yml:")
     click.echo(f"  - name: {name}")
     click.echo(f"    sha256: {digest}")
+
+
+@main.command()
+@click.argument("name")
+@click.option(
+    "--top-n",
+    "top_n",
+    type=int,
+    default=10,
+    show_default=True,
+    help="How many top activities / transitions to include in the output.",
+)
+def stats(name: str, top_n: int) -> None:
+    """Summary stats for a log: cases, events, activities, span, top-N."""
+    events = _load_events(name)
+    s = summarize(events, top_n=top_n)
+    click.echo(
+        json.dumps(
+            {
+                "n_events": s.n_events,
+                "n_cases": s.n_cases,
+                "n_activities": s.n_activities,
+                "span_days": s.span_days,
+                "earliest": s.earliest.isoformat() if s.earliest else None,
+                "latest": s.latest.isoformat() if s.latest else None,
+                "mean_case_length": s.mean_case_length,
+                "median_case_length": s.median_case_length,
+                "top_activities": [
+                    {"activity": a, "count": c} for a, c in s.top_activities
+                ],
+                "top_transitions": [
+                    {"a": ab[0], "b": ab[1], "count": c} for ab, c in s.top_transitions
+                ],
+            },
+            indent=2,
+        ),
+    )
 
 
 @main.command()
