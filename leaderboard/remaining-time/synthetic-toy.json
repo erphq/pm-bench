@@ -20,7 +20,7 @@
         "n": 158
       },
       "scored_at": "2026-04-30T00:00:00Z",
-      "notes": "Constant prediction = mean remaining-time observed on training prefixes. The dumbest model that still respects the train/test split — the floor any temporal model must clear."
+      "notes": "Constant prediction = mean remaining-time observed on training prefixes. The dumbest model that still respects the train/test split - the floor any temporal model must clear."
     },
     {
       "model": "zero-ref",
@@ -33,7 +33,7 @@
         "n": 158
       },
       "scored_at": "2026-04-30T00:00:00Z",
-      "notes": "Predicts 0 days remaining for every prefix. The absolute MAE floor — beats nothing, exists to anchor the lower bound."
+      "notes": "Predicts 0 days remaining for every prefix. The absolute MAE floor - beats nothing, exists to anchor the lower bound."
     }
   ]
 }

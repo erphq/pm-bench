@@ -7,7 +7,7 @@ collapses to 1/|activities| (modulo whichever activity sorts first); a
 real model has to clear that floor or it isn't using the trace.
 
 This baseline exists alongside `markov` to demonstrate the leaderboard
-scales to multiple entries on the same (task, dataset) pair — and to
+scales to multiple entries on the same (task, dataset) pair - and to
 give an honest "did the trace help at all?" comparison number.
 """
 from __future__ import annotations
@@ -40,7 +40,7 @@ def fit_uniform(events: Iterable[Event], train_case_ids: Iterable[CaseId]) -> Un
 def predict_uniform(
     model: UniformBaseline, prefixes: Iterable[Prefix]
 ) -> list[Prediction]:
-    """Same ranked list for every target — the entire activity vocab."""
+    """Same ranked list for every target - the entire activity vocab."""
     ranking = model.activities_sorted
     return [
         Prediction(case_id=p.case_id, prefix_idx=p.prefix_idx, ranked=ranking)

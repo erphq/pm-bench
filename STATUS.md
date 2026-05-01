@@ -62,7 +62,7 @@ pm-bench fetch bpi2020 --pin
 
 - **Floor baselines for time + conformance** (`floor-baselines` branch).
   - `zero-time` for remaining-time: predicts 0 days for every prefix.
-    MAE 2.741 on synthetic-toy — exactly twice mean-ref's 1.348, as
+    MAE 2.741 on synthetic-toy - exactly twice mean-ref's 1.348, as
     expected for a constant zero predictor.
   - `empty` for conformance: submits a model with no transitions.
     F = 0 by construction; the absolute conformance floor.
@@ -72,7 +72,7 @@ pm-bench fetch bpi2020 --pin
     still single-entry pending future submissions.
 - **Uniform second baseline + multi-entry leaderboard demo**
   (`uniform-baseline` branch).
-  - `pm_bench/baselines/uniform.py` — ranks every training-set
+  - `pm_bench/baselines/uniform.py` - ranks every training-set
     activity in lexicographic order, identical for every prefix. The
     "didn't read the trace at all" floor.
   - `predict --baseline uniform` for next-event.
@@ -80,7 +80,7 @@ pm-bench fetch bpi2020 --pin
     markov-ref top-1 0.9304 vs uniform-ref top-1 0.2025. Standings
     sort puts markov on top.
   - Demonstrates the leaderboard scales to multiple submissions on
-    one (task, dataset) pair — a precondition for accepting external
+    one (task, dataset) pair - a precondition for accepting external
     submissions.
   - 1 new test asserting the standings order; 117 total.
 - **`pm-bench stats <name>`** (`stats-command` branch).
@@ -90,7 +90,7 @@ pm-bench fetch bpi2020 --pin
   - Pure CPython; works on synthetic-toy and any CSV path the
     existing `_load_events` accepts.
   - 7 new tests; 116 total.
-- **Synthetic-toy bumped to 200 cases — outcome row finally lands**
+- **Synthetic-toy bumped to 200 cases - outcome row finally lands**
   (`synthetic-200` branch).
   - `synthetic_log()` default `n_cases` = 200 (was 50). Test partition
     now has ~45 positive cases (`delivery_confirmed`) so AUC is
@@ -100,7 +100,7 @@ pm-bench fetch bpi2020 --pin
     mean-ref MAE 1.3481, mean-wait-ref NDCG@10 0.9911,
     dfg-ref F=1.0 (both partitions now cover the full path graph).
   - **5th leaderboard board added**: `outcome/synthetic-toy.json`
-    with `prior-ref` entry — AUC 0.6319, n_pos 45 / 158. Real floor
+    with `prior-ref` entry - AUC 0.6319, n_pos 45 / 158. Real floor
     for any temporal model on the outcome task.
   - `_rescore_outcome` + `_outcome_truth_for_dataset` added to
     `leaderboard.py`. `pm-bench leaderboard --all --verify` now

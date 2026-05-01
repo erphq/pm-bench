@@ -39,7 +39,7 @@
         "n_model_transitions": 0
       },
       "scored_at": "2026-04-30T00:00:00Z",
-      "notes": "Empty model — zero transitions. Absolute floor: fitness 0, F 0. A submission has to do strictly better."
+      "notes": "Empty model - zero transitions. Absolute floor: fitness 0, F 0. A submission has to do strictly better."
     }
   ]
 }

@@ -459,7 +459,7 @@ def discover(name: str, split_path: str, out_path: str, baseline: str) -> None:
 
     The submission for the conformance task is a model JSON. `dfg`
     extracts the directly-follows graph; `empty` submits no transitions
-    (the absolute conformance floor — fitness 0, F-score 0).
+    (the absolute conformance floor - fitness 0, F-score 0).
     """
     events = _load_events(name)
     with open(split_path) as f:

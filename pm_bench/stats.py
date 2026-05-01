@@ -1,6 +1,6 @@
 """Quick summary stats for an event log.
 
-Useful when inspecting a new dataset — n_cases, n_events, distinct
+Useful when inspecting a new dataset - n_cases, n_events, distinct
 activity count, time span, top-N most-frequent activities and
 transitions, mean / median case length. Pure CPython; runs in the
 same process as the rest of pm-bench so it works on `synthetic-toy`,

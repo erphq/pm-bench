@@ -1,7 +1,7 @@
 """Zero-remaining-time floor baseline.
 
 Predicts 0 days of remaining time for every prefix. The absolute MAE
-floor — any model that ties this isn't using time information at all.
+floor - any model that ties this isn't using time information at all.
 Sits below `mean-time` on the leaderboard and gives the dumbest
 possible reference number.
 """
