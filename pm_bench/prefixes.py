@@ -129,18 +129,13 @@ def extract_prefixes(
 def write_prefixes_csv(prefixes: Iterable[Prefix], path: str) -> int:
     """Write prefixes to a CSV file (plain or `.gz`). Returns the number of rows.
 
-    Raises ValueError if any activity name contains the `|` separator —
-    same constraint as `write_predictions_csv`, since both columns
-    encode an ordered activity list with `|`.
+    Raises ValueError if any activity name contains the `|` separator
+    or is empty. Writes are atomic (tmp + rename) so a mid-stream
+    validation failure doesn't leave a half-written file.
     """
-    import csv
+    from pm_bench.predictions import _atomic_csv_write, _encode_ranked
 
-    from pm_bench.predictions import _open_text
-
-    n = 0
-    with _open_text(path, "wt") as f:
-        w = csv.writer(f)
-        w.writerow(["case_id", "prefix_idx", "prefix", "true_next"])
+    def _rows():
         for p in prefixes:
             for a in (*p.prefix, p.true_next):
                 if not a:
@@ -154,22 +149,31 @@ def write_prefixes_csv(prefixes: Iterable[Prefix], path: str) -> int:
                         "used to encode the prefix list — prefixes would "
                         "round-trip corrupted."
                     )
-            w.writerow([p.case_id, p.prefix_idx, PREFIX_SEP.join(p.prefix), p.true_next])
-            n += 1
-    return n
+            # _encode_ranked is the same shape as join — but we also
+            # need true_next as a fourth column.
+            yield (p.case_id, p.prefix_idx, _encode_ranked(p.prefix), p.true_next)
+
+    return _atomic_csv_write(
+        path,
+        ["case_id", "prefix_idx", "prefix", "true_next"],
+        _rows(),
+    )
 
 
 def read_prefixes_csv(path: str) -> list[Prefix]:
     """Read a prefixes CSV emitted by `write_prefixes_csv` (plain or `.gz`)."""
     import csv
 
-    from pm_bench.predictions import _open_text
+    from pm_bench.predictions import _open_text, _require_field
 
     out: list[Prefix] = []
     with _open_text(path) as f:
         r = csv.DictReader(f)
-        for row in r:
-            prefix_str = row["prefix"]
+        for i, row in enumerate(r, start=2):
+            cid = _require_field(row, "case_id", i, str(path)).strip()
+            pidx = _require_field(row, "prefix_idx", i, str(path)).strip()
+            prefix_str = _require_field(row, "prefix", i, str(path))
+            true_next = _require_field(row, "true_next", i, str(path)).strip()
             # Strip every activity in the prefix list — same invariant
             # as case_id stripping. Mirrors the writer guarantee that no
             # padded values ever leave pm-bench.
@@ -180,10 +184,10 @@ def read_prefixes_csv(path: str) -> list[Prefix]:
             )
             out.append(
                 Prefix(
-                    case_id=row["case_id"].strip(),
-                    prefix_idx=int(row["prefix_idx"]),
+                    case_id=cid,
+                    prefix_idx=int(pidx),
                     prefix=prefix,
-                    true_next=row["true_next"].strip(),
+                    true_next=true_next,
                 )
             )
     return out
@@ -263,35 +267,33 @@ def extract_outcome_targets(
 
 def write_outcome_targets_csv(targets: Iterable[OutcomeTarget], path: str) -> int:
     """Write outcome targets to a CSV file (plain or `.gz`)."""
-    import csv
+    from pm_bench.predictions import _atomic_csv_write
 
-    from pm_bench.predictions import _open_text
-
-    n = 0
-    with _open_text(path, "wt") as f:
-        w = csv.writer(f)
-        w.writerow(["case_id", "prefix_idx", "outcome"])
-        for t in targets:
-            w.writerow([t.case_id, t.prefix_idx, t.outcome])
-            n += 1
-    return n
+    return _atomic_csv_write(
+        path,
+        ["case_id", "prefix_idx", "outcome"],
+        ((t.case_id, t.prefix_idx, t.outcome) for t in targets),
+    )
 
 
 def read_outcome_targets_csv(path: str) -> list[OutcomeTarget]:
     """Read an outcome-targets CSV (plain or `.gz`)."""
     import csv
 
-    from pm_bench.predictions import _open_text
+    from pm_bench.predictions import _open_text, _require_field
 
     out: list[OutcomeTarget] = []
     with _open_text(path) as f:
         r = csv.DictReader(f)
-        for row in r:
+        for i, row in enumerate(r, start=2):
+            cid = _require_field(row, "case_id", i, str(path)).strip()
+            pidx = _require_field(row, "prefix_idx", i, str(path)).strip()
+            oc = _require_field(row, "outcome", i, str(path))
             out.append(
                 OutcomeTarget(
-                    case_id=row["case_id"].strip(),
-                    prefix_idx=int(row["prefix_idx"]),
-                    outcome=int(row["outcome"]),
+                    case_id=cid,
+                    prefix_idx=int(pidx),
+                    outcome=int(oc),
                 )
             )
     return out
@@ -299,35 +301,33 @@ def read_outcome_targets_csv(path: str) -> list[OutcomeTarget]:
 
 def write_time_targets_csv(targets: Iterable[TimeTarget], path: str) -> int:
     """Write remaining-time targets to a CSV file (plain or `.gz`)."""
-    import csv
+    from pm_bench.predictions import _atomic_csv_write
 
-    from pm_bench.predictions import _open_text
-
-    n = 0
-    with _open_text(path, "wt") as f:
-        w = csv.writer(f)
-        w.writerow(["case_id", "prefix_idx", "remaining_days"])
-        for t in targets:
-            w.writerow([t.case_id, t.prefix_idx, repr(t.remaining_days)])
-            n += 1
-    return n
+    return _atomic_csv_write(
+        path,
+        ["case_id", "prefix_idx", "remaining_days"],
+        ((t.case_id, t.prefix_idx, repr(t.remaining_days)) for t in targets),
+    )
 
 
 def read_time_targets_csv(path: str) -> list[TimeTarget]:
     """Read a remaining-time CSV (plain or `.gz`)."""
     import csv
 
-    from pm_bench.predictions import _open_text
+    from pm_bench.predictions import _open_text, _require_field
 
     out: list[TimeTarget] = []
     with _open_text(path) as f:
         r = csv.DictReader(f)
-        for row in r:
+        for i, row in enumerate(r, start=2):
+            cid = _require_field(row, "case_id", i, str(path)).strip()
+            pidx = _require_field(row, "prefix_idx", i, str(path)).strip()
+            rd = _require_field(row, "remaining_days", i, str(path))
             out.append(
                 TimeTarget(
-                    case_id=row["case_id"].strip(),
-                    prefix_idx=int(row["prefix_idx"]),
-                    remaining_days=float(row["remaining_days"]),
+                    case_id=cid,
+                    prefix_idx=int(pidx),
+                    remaining_days=float(rd),
                 )
             )
     return out

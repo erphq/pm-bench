@@ -60,6 +60,30 @@ pm-bench fetch bpi2020 --pin
 
 ## Recently shipped
 
+- **Round-9 cleanup** (`round9-fixes` branch). Sixth audit pass found
+  another batch of corruption + traceback paths:
+  - **R37+R38**: `csv.DictReader` returns `None` for missing columns
+    in short rows. The 7 readers (event log, predictions, prefixes,
+    time, outcome, bottleneck targets + predictions) all then
+    `.strip()` / `int()` / `float()` on `None` → uncaught
+    AttributeError / TypeError. New `_require_field(row, col, line, path)`
+    helper raises ValueError with file:line:column context. Applied
+    to every reader.
+  - **R39**: validation failures mid-write (empty / pipe-bearing
+    activity) left a partial CSV at the destination. New
+    `_atomic_csv_write` stages to a tmp file (gz-aware naming) and
+    renames on success; on exception, unlinks the tmp. All 7 writers
+    use it.
+  - **R40+R41**: `load_board` now rejects unknown `task` (used to
+    fall through to next-event-shaped formatting and crash on
+    `f"{None:.4f}"`). The single-board CLI path now catches
+    `(JSONDecodeError, KeyError, ValueError, TypeError)` instead of
+    only `FileNotFoundError`. The `--all` paths likewise widened.
+  - **R42**: `verify` now reports keys-in-recorded-not-in-fresh as
+    drift. A board with `task: outcome` but `top1` in the recorded
+    score (logically incoherent) used to pass silently because the
+    loop only iterated the keys produced by the scorer.
+  - 4 new tests; 219 total, ruff clean.
 - **Round-8 cleanup** (`round8-fixes` branch). 7 more bugs from a
   fresh agent-led audit:
   - **R30**: `read_prefixes_csv` and `read_predictions_csv` only

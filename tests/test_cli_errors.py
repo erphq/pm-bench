@@ -245,6 +245,67 @@ def test_prefixes_to_nonexistent_dir_auto_creates(tmp_path: Path) -> None:
     assert out_path.exists()
 
 
+def test_score_with_short_csv_row_exits_2(tmp_path: Path) -> None:
+    """A predictions row missing a required column must surface as a
+    clean exit-2 error, not raw-traceback."""
+    runner = CliRunner()
+    split_path = _write_split(tmp_path)
+    prefixes_path = _write_prefixes(tmp_path, "next-event", split_path)
+    preds_path = tmp_path / "preds.csv"
+    # Row with only 2 fields (csv parser sets predictions=None).
+    preds_path.write_text(
+        "case_id,prefix_idx,predictions\n"
+        "0,1\n"
+    )
+    r = runner.invoke(
+        main,
+        ["score", str(preds_path), "--prefixes", str(prefixes_path)],
+    )
+    assert r.exit_code == 2
+    assert "missing required column" in r.output
+
+
+def test_leaderboard_single_board_with_malformed_json_exits_2(tmp_path: Path) -> None:
+    """`pm-bench leaderboard <task> <dataset>` on a malformed JSON used to
+    raw-traceback (caught only FileNotFoundError). Now: exit 2."""
+    import shutil
+
+    src = REPO_ROOT / "leaderboard"
+    dst = tmp_path / "leaderboard"
+    shutil.copytree(src, dst)
+    target = dst / "next-event" / "synthetic-toy.json"
+    target.write_text("not valid json")
+    runner = CliRunner()
+    r = runner.invoke(
+        main,
+        ["leaderboard", "next-event", "synthetic-toy", "--repo-root", str(tmp_path)],
+    )
+    assert r.exit_code == 2
+    assert "malformed" in r.output
+
+
+def test_leaderboard_unknown_task_in_json_caught(tmp_path: Path) -> None:
+    """A board JSON with a typo'd task (not in VALID_TASKS) must not
+    fall through to the next-event format and crash on f-string."""
+    import json
+    import shutil
+
+    src = REPO_ROOT / "leaderboard"
+    dst = tmp_path / "leaderboard"
+    shutil.copytree(src, dst)
+    target = dst / "next-event" / "synthetic-toy.json"
+    raw = json.loads(target.read_text())
+    raw["task"] = "next_event"  # typo: underscore, not dash
+    target.write_text(json.dumps(raw))
+    runner = CliRunner()
+    r = runner.invoke(
+        main,
+        ["leaderboard", "next-event", "synthetic-toy", "--repo-root", str(tmp_path)],
+    )
+    assert r.exit_code == 2
+    assert "unknown task" in r.output
+
+
 def test_validate_with_bad_repo_root_exits_2(tmp_path: Path) -> None:
     """`validate --repo-root` pointing somewhere without predictions
     must surface a clean message, not raw-traceback FileNotFoundError."""

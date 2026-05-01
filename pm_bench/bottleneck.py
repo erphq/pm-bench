@@ -77,36 +77,38 @@ def write_bottleneck_targets_csv(
     targets: Iterable[BottleneckTarget], path: str
 ) -> int:
     """Write bottleneck targets to a CSV file (plain or `.gz`)."""
-    import csv
+    from pm_bench.predictions import _atomic_csv_write
 
-    from pm_bench.predictions import _open_text
-
-    n = 0
-    with _open_text(path, "wt") as f:
-        w = csv.writer(f)
-        w.writerow(["activity_a", "activity_b", "mean_wait_seconds", "n_observations"])
-        for t in targets:
-            w.writerow([t.activity_a, t.activity_b, repr(t.mean_wait_seconds), t.n_observations])
-            n += 1
-    return n
+    return _atomic_csv_write(
+        path,
+        ["activity_a", "activity_b", "mean_wait_seconds", "n_observations"],
+        (
+            (t.activity_a, t.activity_b, repr(t.mean_wait_seconds), t.n_observations)
+            for t in targets
+        ),
+    )
 
 
 def read_bottleneck_targets_csv(path: str) -> list[BottleneckTarget]:
     """Read a bottleneck-targets CSV (plain or `.gz`)."""
     import csv
 
-    from pm_bench.predictions import _open_text
+    from pm_bench.predictions import _open_text, _require_field
 
     out: list[BottleneckTarget] = []
     with _open_text(path) as f:
         r = csv.DictReader(f)
-        for row in r:
+        for i, row in enumerate(r, start=2):
+            a = _require_field(row, "activity_a", i, str(path)).strip()
+            b = _require_field(row, "activity_b", i, str(path)).strip()
+            mw = _require_field(row, "mean_wait_seconds", i, str(path))
+            no = _require_field(row, "n_observations", i, str(path))
             out.append(
                 BottleneckTarget(
-                    activity_a=row["activity_a"].strip(),
-                    activity_b=row["activity_b"].strip(),
-                    mean_wait_seconds=float(row["mean_wait_seconds"]),
-                    n_observations=int(row["n_observations"]),
+                    activity_a=a,
+                    activity_b=b,
+                    mean_wait_seconds=float(mw),
+                    n_observations=int(no),
                 )
             )
     return out
@@ -116,35 +118,36 @@ def write_bottleneck_predictions_csv(
     predictions: Iterable[BottleneckPrediction], path: str
 ) -> int:
     """Write bottleneck predictions to a CSV file (plain or `.gz`)."""
-    import csv
+    from pm_bench.predictions import _atomic_csv_write
 
-    from pm_bench.predictions import _open_text
-
-    n = 0
-    with _open_text(path, "wt") as f:
-        w = csv.writer(f)
-        w.writerow(["activity_a", "activity_b", "predicted_wait_seconds"])
-        for p in predictions:
-            w.writerow([p.activity_a, p.activity_b, repr(p.predicted_wait_seconds)])
-            n += 1
-    return n
+    return _atomic_csv_write(
+        path,
+        ["activity_a", "activity_b", "predicted_wait_seconds"],
+        (
+            (p.activity_a, p.activity_b, repr(p.predicted_wait_seconds))
+            for p in predictions
+        ),
+    )
 
 
 def read_bottleneck_predictions_csv(path: str) -> list[BottleneckPrediction]:
     """Read a bottleneck-predictions CSV (plain or `.gz`)."""
     import csv
 
-    from pm_bench.predictions import _open_text
+    from pm_bench.predictions import _open_text, _require_field
 
     out: list[BottleneckPrediction] = []
     with _open_text(path) as f:
         r = csv.DictReader(f)
-        for row in r:
+        for i, row in enumerate(r, start=2):
+            a = _require_field(row, "activity_a", i, str(path)).strip()
+            b = _require_field(row, "activity_b", i, str(path)).strip()
+            pw = _require_field(row, "predicted_wait_seconds", i, str(path))
             out.append(
                 BottleneckPrediction(
-                    activity_a=row["activity_a"].strip(),
-                    activity_b=row["activity_b"].strip(),
-                    predicted_wait_seconds=float(row["predicted_wait_seconds"]),
+                    activity_a=a,
+                    activity_b=b,
+                    predicted_wait_seconds=float(pw),
                 )
             )
     return out

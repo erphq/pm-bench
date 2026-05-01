@@ -59,35 +59,33 @@ def predict_mean_time(
 
 def write_time_predictions_csv(predictions: Iterable[TimePrediction], path: str) -> int:
     """Write remaining-time predictions to CSV (plain or `.gz`). Returns row count."""
-    import csv
+    from pm_bench.predictions import _atomic_csv_write
 
-    from pm_bench.predictions import _open_text
-
-    n = 0
-    with _open_text(path, "wt") as f:
-        w = csv.writer(f)
-        w.writerow(["case_id", "prefix_idx", "predicted_days"])
-        for p in predictions:
-            w.writerow([p.case_id, p.prefix_idx, repr(p.predicted_days)])
-            n += 1
-    return n
+    return _atomic_csv_write(
+        path,
+        ["case_id", "prefix_idx", "predicted_days"],
+        ((p.case_id, p.prefix_idx, repr(p.predicted_days)) for p in predictions),
+    )
 
 
 def read_time_predictions_csv(path: str) -> list[TimePrediction]:
     """Read a remaining-time predictions CSV (plain or `.gz`)."""
     import csv
 
-    from pm_bench.predictions import _open_text
+    from pm_bench.predictions import _open_text, _require_field
 
     out: list[TimePrediction] = []
     with _open_text(path) as f:
         r = csv.DictReader(f)
-        for row in r:
+        for i, row in enumerate(r, start=2):
+            cid = _require_field(row, "case_id", i, str(path)).strip()
+            pidx = _require_field(row, "prefix_idx", i, str(path)).strip()
+            pd = _require_field(row, "predicted_days", i, str(path))
             out.append(
                 TimePrediction(
-                    case_id=row["case_id"].strip(),
-                    prefix_idx=int(row["prefix_idx"]),
-                    predicted_days=float(row["predicted_days"]),
+                    case_id=cid,
+                    prefix_idx=int(pidx),
+                    predicted_days=float(pd),
                 )
             )
     return out

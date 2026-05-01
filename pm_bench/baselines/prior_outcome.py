@@ -102,35 +102,33 @@ def write_outcome_predictions_csv(
     path: str,
 ) -> int:
     """Write outcome predictions to CSV (plain or `.gz`). Returns row count."""
-    import csv
+    from pm_bench.predictions import _atomic_csv_write
 
-    from pm_bench.predictions import _open_text
-
-    n = 0
-    with _open_text(path, "wt") as f:
-        w = csv.writer(f)
-        w.writerow(["case_id", "prefix_idx", "score"])
-        for p in predictions:
-            w.writerow([p.case_id, p.prefix_idx, repr(p.score)])
-            n += 1
-    return n
+    return _atomic_csv_write(
+        path,
+        ["case_id", "prefix_idx", "score"],
+        ((p.case_id, p.prefix_idx, repr(p.score)) for p in predictions),
+    )
 
 
 def read_outcome_predictions_csv(path: str) -> list[OutcomePrediction]:
     """Read an outcome predictions CSV (plain or `.gz`)."""
     import csv
 
-    from pm_bench.predictions import _open_text
+    from pm_bench.predictions import _open_text, _require_field
 
     out: list[OutcomePrediction] = []
     with _open_text(path) as f:
         r = csv.DictReader(f)
-        for row in r:
+        for i, row in enumerate(r, start=2):
+            cid = _require_field(row, "case_id", i, str(path)).strip()
+            pidx = _require_field(row, "prefix_idx", i, str(path)).strip()
+            sc = _require_field(row, "score", i, str(path))
             out.append(
                 OutcomePrediction(
-                    case_id=row["case_id"].strip(),
-                    prefix_idx=int(row["prefix_idx"]),
-                    score=float(row["score"]),
+                    case_id=cid,
+                    prefix_idx=int(pidx),
+                    score=float(sc),
                 )
             )
     return out

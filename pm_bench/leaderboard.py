@@ -65,10 +65,27 @@ class Board:
     raw: dict
 
 
+_VALID_TASKS: set[str] = {
+    "next-event",
+    "remaining-time",
+    "outcome",
+    "bottleneck",
+    "conformance",
+}
+
+
 def load_board(path: str | Path) -> Board:
-    """Load a leaderboard JSON file."""
+    """Load a leaderboard JSON file. Validates task is one we know about
+    (downstream code formats numbers per-task and would crash on
+    `f"{None:.4f}"` if a typo'd task slipped through)."""
     p = Path(path)
     raw = json.loads(p.read_text(encoding="utf-8-sig"))
+    task = raw["task"]
+    if task not in _VALID_TASKS:
+        raise ValueError(
+            f"{path}: unknown task {task!r}; expected one of "
+            f"{sorted(_VALID_TASKS)!r}"
+        )
     entries = [
         Entry(
             model=e["model"],
@@ -83,7 +100,7 @@ def load_board(path: str | Path) -> Board:
         for e in raw["entries"]
     ]
     return Board(
-        task=raw["task"],
+        task=task,
         dataset=raw["dataset"],
         metric=raw["metric"],
         entries=entries,
@@ -296,6 +313,15 @@ def verify(board: Board, repo_root: str | Path = ".", *, tol: float = 1e-9) -> l
     """Return a list of human-readable drift messages (empty = clean)."""
     drifts: list[str] = []
     for entry, fresh in rescore(board, repo_root=repo_root):
+        # Catch keys-in-recorded-not-in-fresh: a board with logically-
+        # wrong keys (e.g. `top1` on an outcome entry) used to pass
+        # verify silently because the loop only iterated `fresh`.
+        extra = set(entry.score) - set(fresh)
+        if extra:
+            drifts.append(
+                f"{entry.model}: recorded score has extra key(s) {sorted(extra)} "
+                f"not produced by the {board.task!r} scorer"
+            )
         for k, actual in fresh.items():
             recorded = entry.score.get(k)
             ok = recorded == actual if isinstance(actual, int) else (

@@ -81,11 +81,18 @@ def read_csv_log(path: str | Path) -> list[Event]:
             # distinct case ids and silently halve every metric. Our own
             # writers never emit padded values, so this is a safe
             # round-trip narrowing of the input.
+            cid_raw = row.get(case_col)
+            act_raw = row.get(act_col)
+            ts_raw_obj = row.get(ts_col)
+            if cid_raw is None or act_raw is None or ts_raw_obj is None:
+                raise ValueError(
+                    f"{path}:{i}: short row — missing one of "
+                    f"{case_col!r}/{act_col!r}/{ts_col!r}"
+                )
             try:
-                ts_raw = row[ts_col].strip() if row.get(ts_col) is not None else ""
-                ts = datetime.fromisoformat(ts_raw)
-            except (KeyError, ValueError) as exc:
-                raise ValueError(f"{path}:{i}: bad timestamp {row.get(ts_col)!r}") from exc
+                ts = datetime.fromisoformat(ts_raw_obj.strip())
+            except ValueError as exc:
+                raise ValueError(f"{path}:{i}: bad timestamp {ts_raw_obj!r}") from exc
             # Normalize away any tzinfo so a CSV mixing aware + naive
             # rows doesn't blow up later when we subtract two timestamps
             # in a split or duration calc. Convert to UTC first — a bare
@@ -93,5 +100,12 @@ def read_csv_log(path: str | Path) -> list[Event]:
             # silently reorders aware rows relative to naive ones.
             if ts.tzinfo is not None:
                 ts = ts.astimezone(timezone.utc).replace(tzinfo=None)
-            out.append((row[case_col].strip(), row[act_col].strip(), ts))
+            cid = cid_raw.strip()
+            act = act_raw.strip()
+            # Empty activity is rejected at write time; reject on read
+            # too so the contract is symmetric and the user catches the
+            # data-quality issue before training.
+            if not act:
+                raise ValueError(f"{path}:{i}: empty activity")
+            out.append((cid, act, ts))
     return out

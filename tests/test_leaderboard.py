@@ -70,6 +70,24 @@ def test_verify_detects_drift(tmp_path) -> None:
     assert any("top1 drift" in d for d in drifts)
 
 
+def test_verify_catches_extra_score_keys(tmp_path) -> None:
+    """A board claiming task=outcome but with `top1` in its recorded
+    score (logically incoherent) used to pass verify silently because
+    the loop only iterated keys produced by the scorer."""
+    import shutil
+
+    src = REPO_ROOT / "leaderboard"
+    dst = tmp_path / "leaderboard"
+    shutil.copytree(src, dst)
+    target = dst / "outcome" / "synthetic-toy.json"
+    raw = json.loads(target.read_text())
+    raw["entries"][0]["score"]["top1"] = 0.9  # nonsensical for outcome
+    target.write_text(json.dumps(raw))
+    board = load_board(target)
+    drifts = verify(board, repo_root=tmp_path)
+    assert any("extra key" in d and "top1" in d for d in drifts)
+
+
 def test_verify_detects_drift_on_second_entry(tmp_path) -> None:
     """Verify must catch drift even when only entries[1:] is tampered.
 

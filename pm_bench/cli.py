@@ -818,7 +818,7 @@ def leaderboard(
             for f in files:
                 try:
                     board = load_board(f)
-                except (KeyError, ValueError) as exc:
+                except (json.JSONDecodeError, KeyError, ValueError, TypeError) as exc:
                     click.echo(f"{f.relative_to(repo_root)}: malformed - {exc}", err=True)
                     any_drift = True
                     continue
@@ -851,7 +851,7 @@ def leaderboard(
         for f in files:
             try:
                 board = load_board(f)
-            except (KeyError, ValueError) as exc:
+            except (json.JSONDecodeError, KeyError, ValueError, TypeError) as exc:
                 click.echo(f"{f.relative_to(repo_root)}: malformed - {exc}", err=True)
                 continue
             click.echo(
@@ -870,6 +870,9 @@ def leaderboard(
     except FileNotFoundError:
         click.echo(f"no leaderboard at {path}", err=True)
         sys.exit(1)
+    except (json.JSONDecodeError, KeyError, ValueError, TypeError) as exc:
+        click.echo(f"{path}: malformed - {exc}", err=True)
+        sys.exit(2)
 
     if do_verify:
         try:
