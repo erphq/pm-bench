@@ -60,6 +60,14 @@ pm-bench fetch bpi2020 --pin
 
 ## Recently shipped
 
+- **JSON Schema for leaderboard files** (`leaderboard-schema` branch).
+  - `pm_bench/leaderboard_schema.py:validate_board(dict) → list[str]`
+    — stdlib-only structural checker; clear error paths
+    (`$.entries[2].score`).
+  - Parametrized test exercises every checked-in board against the
+    schema; 4 negative tests catch missing top keys, unknown tasks,
+    missing score, non-dict score.
+  - 9 new tests; 143 total, ruff clean.
 - **`synthetic-toy@<seed>` syntax** (`synthetic-seed-flag` branch).
   - Pass `synthetic-toy@99` to any command that takes a dataset name
     and the generator runs at that seed (default still seed=42 for
