@@ -4,7 +4,7 @@ _Last updated: 2026-04-30._
 
 ## Where we are
 
-Pre-v0. Two pieces shipped on top of v0.0:
+Pre-v0. Three pieces shipped on top of v0.0:
 
 1. The end-to-end loop runs on the bundled `synthetic-toy` dataset
    (split → prefixes → predict → score; Markov reference baseline
@@ -14,6 +14,13 @@ Pre-v0. Two pieces shipped on top of v0.0:
    sha256, and prints precise instructions for the TOS-gated download
    step on 4TU / Mendeley. `--pin` emits the `registry.yml` patch a
    contributor pastes into a PR after the manual download.
+3. The leaderboard scaffold is live: standings JSON under
+   `leaderboard/<task>/<dataset>.json`, reference predictions checked
+   in under `leaderboard/predictions/...`, and `pm-bench leaderboard
+   <task> <dataset> [--verify]` re-scores entries to catch drift. The
+   Markov-ref entry on `synthetic-toy` is the first row, and a
+   determinism test in CI fails if the recorded score doesn't match a
+   fresh rescore.
 
 What's still left in v0.1 is purely a per-dataset operational task: do
 the one-time download, run `--pin`, open seven small PRs to pin the
@@ -53,6 +60,16 @@ pm-bench fetch bpi2020 --pin
 
 ## Recently shipped
 
+- **Leaderboard scaffold** (`leaderboard-scaffold` branch).
+  - `leaderboard/next-event/synthetic-toy.json` with the Markov
+    reference entry; predictions checked in under
+    `leaderboard/predictions/next-event/synthetic-toy/markov-ref.csv.gz`.
+  - `pm_bench/leaderboard.py` — load/rescore/verify/standings, all
+    pure CPython; reads gzipped or plain CSV.
+  - CLI: `pm-bench leaderboard <task> <dataset> [--verify]` —
+    pretty-prints standings, optionally re-runs scoring.
+  - 8 new tests, including a drift-detection canary that tampers with
+    the recorded score and confirms `verify` flags it.
 - **v0.1 fetch + hash machinery** (`dataset-fetch` branch).
   - `pm_bench/cache.py` — cache root resolution
     (`$PM_BENCH_CACHE` → `~/.cache/pm-bench/`), per-dataset path with

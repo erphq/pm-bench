@@ -222,7 +222,10 @@ honesty. The point of the benchmark is to make the comparison real.
       pending the one-time TOS-gated downloads from 4TU and Mendeley.
 - [ ] v0.2 — splits: next-event, remaining-time
 - [ ] v0.3 — scoring scripts for all 5 tasks
-- [ ] v0.4 — leaderboard CI + landing page
+- [🟡] v0.4 — leaderboard CI + landing page. Standings format,
+      reference Markov entry, and `pm-bench leaderboard --verify`
+      shipped (`leaderboard/next-event/synthetic-toy.json`); CI
+      workflow that re-scores submission PRs is the remaining piece.
 - [ ] v0.5 — baselines: `gnn`, transformer, LSTM, Markov ✅ (Markov shipped)
 - [ ] v1.0 — first external submissions; cited in ≥1 paper
 

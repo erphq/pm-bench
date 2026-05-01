@@ -14,6 +14,7 @@ from pm_bench.fetch import (
     ensure_cached,
     sha256_file,
 )
+from pm_bench.leaderboard import load_board, standings, verify
 from pm_bench.predictions import read_predictions_csv, write_predictions_csv
 from pm_bench.prefixes import extract_prefixes, read_prefixes_csv, write_prefixes_csv
 from pm_bench.registry import get_dataset, load_registry
@@ -288,6 +289,53 @@ def score(predictions_path: str, prefixes_path: str, task: str) -> None:
             indent=2,
         ),
     )
+
+
+@main.command()
+@click.argument("task")
+@click.argument("dataset")
+@click.option(
+    "--verify",
+    "do_verify",
+    is_flag=True,
+    default=False,
+    help="Re-score every entry and fail if recorded scores have drifted.",
+)
+@click.option(
+    "--repo-root",
+    type=click.Path(exists=True, file_okay=False),
+    default=".",
+    show_default=True,
+    help="Repo root that `predictions_path` entries are relative to.",
+)
+def leaderboard(task: str, dataset: str, do_verify: bool, repo_root: str) -> None:
+    """Print standings for a (task, dataset) pair, optionally rescoring."""
+    path = f"leaderboard/{task}/{dataset}.json"
+    full = f"{repo_root.rstrip('/')}/{path}"
+    try:
+        board = load_board(full)
+    except FileNotFoundError:
+        click.echo(f"no leaderboard at {path}", err=True)
+        sys.exit(1)
+
+    if do_verify:
+        drifts = verify(board, repo_root=repo_root)
+        if drifts:
+            for d in drifts:
+                click.echo(d, err=True)
+            sys.exit(2)
+        click.echo(f"verified {len(board.entries)} entr(ies) — no drift")
+
+    width = max((len(e.model) for e in board.entries), default=10)
+    click.echo(f"{board.task} · {board.dataset} · {board.metric}")
+    click.echo("-" * (width + 30))
+    for e in standings(board):
+        top1 = e.score.get("top1")
+        top3 = e.score.get("top3")
+        n = e.score.get("n")
+        click.echo(
+            f"{e.model:<{width}}  top1={top1:.4f}  top3={top3:.4f}  n={n}"
+        )
 
 
 if __name__ == "__main__":

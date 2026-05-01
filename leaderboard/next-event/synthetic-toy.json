@@ -1,0 +1,27 @@
+{
+  "task": "next-event",
+  "dataset": "synthetic-toy",
+  "metric": "top1 / top3 accuracy",
+  "scored_with": "pm_bench.score.score_next_event",
+  "split": {
+    "kind": "case-chrono",
+    "train_frac": 0.7,
+    "val_frac": 0.1
+  },
+  "entries": [
+    {
+      "model": "markov-ref",
+      "version": "0.1.0",
+      "predictions_path": "leaderboard/predictions/next-event/synthetic-toy/markov-ref.csv.gz",
+      "code": "https://github.com/erphq/pm-bench/blob/main/pm_bench/baselines/markov.py",
+      "paper": null,
+      "score": {
+        "top1": 0.975609756097561,
+        "top3": 1.0,
+        "n": 41
+      },
+      "scored_at": "2026-04-30T00:00:00Z",
+      "notes": "First-order Markov reference baseline shipped with pm-bench. Trained on the train partition only; falls back to unigram for unseen last-activities. The floor any 'real' sequence model has to clear."
+    }
+  ]
+}

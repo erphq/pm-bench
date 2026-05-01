@@ -15,6 +15,14 @@ Be the default benchmark for new process-mining methods. Within 18 months,
 - End-to-end loop runs on `synthetic-toy` ✅ — split → prefixes →
   predict → score, covered by `tests/test_e2e.py`
 
+## Leaderboard
+- Standings JSON format and reference Markov entry on `synthetic-toy`
+  shipped (`leaderboard/next-event/synthetic-toy.json`)
+- `pm-bench leaderboard --verify` re-scores entries to catch drift; a
+  test guards the Markov-ref score
+- Remaining: CI workflow that re-scores submission PRs (URL- or
+  in-repo-predictions flow)
+
 ## v1 success criteria
 - ≥3 external groups submit to the leaderboard
 - Cited in ≥5 papers
