@@ -13,60 +13,107 @@
 </div>
 
 A reproducible benchmark suite for process mining. Curated event-log
-datasets (BPI Challenge 2012/2017/2018/2019/2020, Sepsis, RoadTraffic,
-Helpdesk), standard case-level splits, fixed scoring scripts for
-next-event prediction, remaining-time prediction, conformance, and
-bottleneck detection. Plus a leaderboard.
+datasets — BPI Challenge 2012 / 2017 / 2018 / 2019 / 2020, Sepsis,
+Helpdesk — plus standard case-level splits, fixed scoring scripts for
+next-event prediction / remaining-time / outcome / conformance /
+bottleneck detection, and a CI-driven leaderboard.
 
-> **The thesis.** Every process-mining paper invents its own split, its
-> own metric, its own preprocessing. Comparison is impossible. The field
-> has had a "MNIST moment" coming for a decade. `pm-bench` is the
-> opinionated default: same splits, same metrics, same leakage rules, every time.
+> **The thesis.** Every process-mining paper invents its own split,
+> its own metric, its own preprocessing. Comparison is impossible. The
+> field has had a "MNIST moment" coming for a decade. `pm-bench` is the
+> opinionated default — same splits, same metrics, same leakage rules,
+> every time.
 
 ---
 
+## ✦ Why this exists
+
+If you read three random next-event prediction papers from the last five
+years, you will find:
+
+- **Three different ways to split** — random, chronological, prefix-based,
+  case-level, event-level. Most don't disclose; many leak.
+- **Three different definitions of "accuracy"** — top-1 over events,
+  top-1 over cases, weighted by case length, perplexity in disguise.
+- **Three different preprocessings** — different time encodings,
+  different scaling, different handling of rare activities.
+
+The result: a paper claims SOTA at 88% top-1, but the prior method
+reported 84% — on a different split, with a different metric, with a
+different leakage profile. There's no signal in the comparison.
+
+`pm-bench` fixes the splits, fixes the metrics, fixes the preprocessing.
+You either run on `pm-bench` or you don't claim to have advanced the
+state of the art.
+
 ## ✦ Tasks
 
-| Task | Metric | Notes |
+| Task | Metric | What you predict |
 |---|---|---|
-| Next-event prediction | top-1 / top-3 accuracy | suffix-aware, no leakage |
-| Remaining-time prediction | MAE in days | weighted by case length |
-| Outcome prediction | AUC | binary outcome from log metadata |
-| Conformance checking | F-score | discovered model vs held-out cases |
-| Bottleneck detection | NDCG@10 | rank transitions by held-out wait time |
+| Next-event prediction | top-1 / top-3 accuracy | Activity at position `k+1` given prefix of length `k` |
+| Remaining-time prediction | MAE in days, weighted by case length | Time from now to case completion |
+| Outcome prediction | AUC | Binary outcome (e.g., "loan approved" / "case escalated") |
+| Conformance checking | F-score (fitness × precision) | How well a discovered model fits held-out cases |
+| Bottleneck detection | NDCG@10 | Rank of transitions by held-out wait time |
 
-## ✦ Usage
-
-```bash
-pip install pm-bench
-pm-bench list                                     # available datasets
-pm-bench fetch bpi2020                            # download + cache
-pm-bench split bpi2020 --task next-event          # train/val/test
-pm-bench score predictions.csv --task next-event --dataset bpi2020
-pm-bench leaderboard --task next-event            # current standings
-```
+All five tasks share the same splits — so a model that does well on
+next-event isn't free-riding on a more permissive split for outcome
+prediction.
 
 ## ✦ Splits
 
-Case-level chronological. Train = oldest 70% of cases by start time, val
-= next 10%, test = newest 20%. No within-case leakage. Suffix-aware: for
-prefix-of-length-`k` evaluation, prefixes are sampled from test cases only.
+**Case-level chronological.** Train = oldest 70% of cases by start
+time, val = next 10%, test = newest 20%. No within-case leakage.
+Suffix-aware: for prefix-of-length-`k` evaluation, prefixes are sampled
+with replacement from test cases only — never train.
+
+```mermaid
+gantt
+  dateFormat  YYYY-MM
+  axisFormat  %Y-%m
+  section Cases
+  Train (70%)        :2018-01, 2y
+  Val (10%)          :2020-01, 4M
+  Test (20%)         :2020-05, 8M
+```
+
+This is stricter than the field default (which often uses random
+case-level splits, leaking time signal). It will produce numbers a
+couple points worse than the literature; that's the point.
 
 ## ✦ Datasets
 
-| Name | Cases | Events | Source |
-|---|---|---|---|
-| `bpi2012` | 13,087 | 262,200 | 4TU.ResearchData |
-| `bpi2017` | 31,509 | 1,202,267 | 4TU.ResearchData |
-| `bpi2018` | 43,809 | 2,514,266 | 4TU.ResearchData |
-| `bpi2019` | 251,734 | 1,595,923 | 4TU.ResearchData |
-| `bpi2020` | 10,500 | 76,000 | 4TU.ResearchData |
-| `sepsis` | 1,050 | 15,214 | 4TU.ResearchData |
-| `helpdesk` | 4,580 | 21,348 | doi.org/10.17632 |
+| Name | Cases | Events | Source | License |
+|---|---|---|---|---|
+| `bpi2012` | 13,087 | 262,200 | [4TU.ResearchData](https://data.4tu.nl) | CC BY 4.0 |
+| `bpi2017` | 31,509 | 1,202,267 | 4TU.ResearchData | CC BY 4.0 |
+| `bpi2018` | 43,809 | 2,514,266 | 4TU.ResearchData | CC BY 4.0 |
+| `bpi2019` | 251,734 | 1,595,923 | 4TU.ResearchData | CC BY 4.0 |
+| `bpi2020` | 10,500 | 76,000 | 4TU.ResearchData | CC BY 4.0 |
+| `sepsis` | 1,050 | 15,214 | 4TU.ResearchData | CC BY 4.0 |
+| `helpdesk` | 4,580 | 21,348 | [Mendeley Data](https://doi.org/10.17632) | CC BY 4.0 |
 
-All public, all redistributable, all hashed.
+All public, all redistributable, all hashed. The benchmark verifies the
+hash before scoring — if you've subtly modified the file, you'll know.
 
-## ✦ How
+We don't host the datasets ourselves; we fetch from the canonical URLs
+and cache locally. Datasets carry their original licenses (linked in
+`datasets/registry.yml`).
+
+## ✦ Install & use
+
+```bash
+pip install pm-bench
+
+pm-bench list                                       # available datasets
+pm-bench fetch bpi2020                              # download + verify hash
+pm-bench split bpi2020 --task next-event > split.json
+pm-bench score predictions.csv \
+  --task next-event --dataset bpi2020 --split split.json
+pm-bench leaderboard --task next-event              # current standings
+```
+
+The full pipeline:
 
 ```mermaid
 flowchart LR
@@ -77,21 +124,87 @@ flowchart LR
   SC --> LB[leaderboard<br/>JSON in repo]
 ```
 
-## ✦ Leaderboard
+## ✦ Submitting to the leaderboard
 
-Submit a PR adding a row to `leaderboard/<task>/<dataset>.json`. CI
-re-runs the scoring script against your linked predictions file. No
-hand-edited numbers.
+Open a PR adding a row to `leaderboard/<task>/<dataset>.json`:
+
+```json
+{
+  "model": "my-cool-transformer",
+  "version": "0.4.1",
+  "paper": "https://arxiv.org/abs/...",
+  "code": "https://github.com/...",
+  "predictions_url": "https://...predictions.csv.gz",
+  "score": null,
+  "scored_at": null
+}
+```
+
+CI fetches the predictions, re-runs the scoring script, fills in `score`
+and `scored_at`. No hand-edited numbers. If your URL goes 404, your
+entry is removed.
+
+## ✦ Comparison: `pm-bench` vs ad-hoc evaluation
+
+| | Ad-hoc | `pm-bench` |
+|---|---|---|
+| Split methodology | Varies, often random | Fixed: case-level chrono |
+| Leakage detection | Manual / none | Built-in (suffix-aware) |
+| Metric definition | Per-paper | Documented per-task |
+| Preprocessing | Hidden in code | Provided as a script |
+| Reproducibility | "code on request" | One command |
+| Comparable across years | No | Yes |
+
+## ✦ FAQ
+
+**Q: Why these splits?**
+A: Case-level chronological is the only split that mirrors deployment.
+You train on the past, you predict the future. Any other split leaks.
+
+**Q: Why these tasks?**
+A: They're the questions process owners actually ask. We lifted them
+from the operational checklist `gnn` already documents.
+
+**Q: Can I add a new dataset?**
+A: PR. Add a `registry.yml` entry with URL + hash + license. CI verifies
+it's reachable and hashes match.
+
+**Q: What about the "Road Traffic Fine Management" dataset?**
+A: Coming in v0.2. The current 7 are the most-cited.
+
+**Q: Why not host the datasets ourselves?**
+A: Legal complexity, and the original hosts are stable. We fetch on
+demand.
+
+**Q: Why is my number lower on `pm-bench` than in my paper?**
+A: Because your paper's split probably leaked. That's the cost of
+honesty. The point of the benchmark is to make the comparison real.
+
+## ✦ Non-goals
+
+- Hosting the datasets ourselves
+- Inventing new tasks; we curate, we don't speculate
+- Becoming a model zoo (that's [`gnn`](https://github.com/erphq/gnn))
+- Streaming / online evaluation
+- Multi-perspective conformance (resource, data attributes)
 
 ## ✦ Roadmap
 
+- [x] v0.0 — scaffold, dataset registry, split design
 - [ ] v0.1 — fetch + cache + hash for all 7 datasets
 - [ ] v0.2 — splits: next-event, remaining-time
 - [ ] v0.3 — scoring scripts for all 5 tasks
 - [ ] v0.4 — leaderboard CI + landing page
 - [ ] v0.5 — baselines: `gnn`, transformer, LSTM, Markov
-- [ ] v1.0 — first external submissions
+- [ ] v1.0 — first external submissions; cited in ≥1 paper
+
+## ✦ Topics
+
+`process-mining` · `benchmark` · `machine-learning` · `event-logs` ·
+`bpi-challenge` · `leaderboard` · `conformance-checking` ·
+`predictive-process-monitoring` · `datasets` · `python` · `pm4py`
 
 ## ✦ License
 
-MIT for code. Datasets carry their original licenses (linked in registry).
+MIT for code. Datasets carry their original licenses (linked in
+`datasets/registry.yml`).
