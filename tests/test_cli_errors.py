@@ -242,6 +242,38 @@ def test_prefixes_to_nonexistent_dir_auto_creates(tmp_path: Path) -> None:
     assert out_path.exists()
 
 
+def test_validate_with_bad_repo_root_exits_2(tmp_path: Path) -> None:
+    """`validate --repo-root` pointing somewhere without predictions
+    must surface a clean message, not raw-traceback FileNotFoundError."""
+    runner = CliRunner()
+    real_board = REPO_ROOT / "leaderboard" / "next-event" / "synthetic-toy.json"
+    r = runner.invoke(
+        main,
+        ["validate", str(real_board), "--repo-root", str(tmp_path)],
+    )
+    assert r.exit_code == 2
+    assert "predictions" in r.output.lower()
+
+
+def test_leaderboard_all_with_missing_predictions_exits_2(tmp_path: Path) -> None:
+    """`--all --verify` with the leaderboard JSONs but no predictions/
+    dir must report each missing file cleanly, not raw-traceback."""
+    import shutil
+
+    shutil.copytree(
+        REPO_ROOT / "leaderboard",
+        tmp_path / "leaderboard",
+        ignore=shutil.ignore_patterns("predictions"),
+    )
+    runner = CliRunner()
+    r = runner.invoke(
+        main,
+        ["leaderboard", "--all", "--verify", "--repo-root", str(tmp_path)],
+    )
+    assert r.exit_code == 2
+    assert "predictions not found" in r.output
+
+
 def test_leaderboard_all_markdown_with_verify_runs_both(tmp_path: Path) -> None:
     """`--all --markdown --verify` must actually run verify, not silently skip it."""
     import shutil

@@ -792,7 +792,16 @@ def leaderboard(
                     click.echo(f"{f.relative_to(repo_root)}: malformed - {exc}", err=True)
                     any_drift = True
                     continue
-                drifts = verify(board, repo_root=repo_root)
+                try:
+                    drifts = verify(board, repo_root=repo_root)
+                except FileNotFoundError as exc:
+                    click.echo(
+                        f"{f.relative_to(repo_root)}: predictions not found "
+                        f"({exc.filename or exc})",
+                        err=True,
+                    )
+                    any_drift = True
+                    continue
                 if not do_markdown:
                     tag = "OK" if not drifts else f"DRIFT ({len(drifts)})"
                     click.echo(
@@ -833,7 +842,15 @@ def leaderboard(
         sys.exit(1)
 
     if do_verify:
-        drifts = verify(board, repo_root=repo_root)
+        try:
+            drifts = verify(board, repo_root=repo_root)
+        except FileNotFoundError as exc:
+            click.echo(
+                f"predictions not found ({exc.filename or exc}); "
+                "check --repo-root and the entry's predictions_path",
+                err=True,
+            )
+            sys.exit(2)
         if drifts:
             for d in drifts:
                 click.echo(d, err=True)
@@ -926,7 +943,15 @@ def validate(board_path: str, repo_root: str, no_rescore: bool) -> None:
     # cost once — the file is small and the alternative is leaking the
     # Board construction into this command.
     board = load_board(board_path)
-    drifts = verify(board, repo_root=repo_root)
+    try:
+        drifts = verify(board, repo_root=repo_root)
+    except FileNotFoundError as exc:
+        click.echo(
+            f"score: predictions file not found ({exc.filename or exc}); "
+            "check --repo-root and the entry's predictions_path",
+            err=True,
+        )
+        sys.exit(2)
     if drifts:
         for d in drifts:
             click.echo(f"score: {d}", err=True)

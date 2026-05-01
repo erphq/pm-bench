@@ -72,13 +72,23 @@ def sha256_file(path: Path) -> str:
 
 
 def _download(url: str, dest: Path) -> None:
-    """Stream a URL into `dest` atomically (write to .part, rename)."""
+    """Stream a URL into `dest` atomically (write to .part, rename).
+
+    On a mid-transfer exception, the partial `.part` file is removed so
+    a subsequent run starts clean rather than leaving an orphaned blob
+    in the cache dir.
+    """
     tmp = dest.with_suffix(dest.suffix + ".part")
     tmp.parent.mkdir(parents=True, exist_ok=True)
-    with urllib.request.urlopen(url) as resp, open(tmp, "wb") as out:  # noqa: S310
-        while chunk := resp.read(CHUNK_BYTES):
-            out.write(chunk)
-    tmp.replace(dest)
+    try:
+        with urllib.request.urlopen(url) as resp, open(tmp, "wb") as out:  # noqa: S310
+            while chunk := resp.read(CHUNK_BYTES):
+                out.write(chunk)
+        tmp.replace(dest)
+    except BaseException:
+        if tmp.exists():
+            tmp.unlink()
+        raise
 
 
 def ensure_cached(dataset: Dataset, override_root: str | None = None) -> FetchResult:

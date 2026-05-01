@@ -123,6 +123,44 @@ def test_ensure_cached_auto_downloads_from_url(tmp_path) -> None:
         os.chdir(cwd_before)
 
 
+def test_download_cleans_part_file_on_failure(tmp_path, monkeypatch) -> None:
+    """A failed download must not leave an orphaned `.part` file behind.
+
+    Simulate a partial-body failure: urlopen succeeds, but reading the
+    body raises midway. The `.part` file would exist at this point, and
+    must be cleaned up.
+    """
+    from pm_bench.fetch import _download
+
+    class _FakeResp:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def __enter__(self) -> "_FakeResp":
+            return self
+
+        def __exit__(self, *a) -> None:
+            return None
+
+        def read(self, n: int) -> bytes:
+            self.calls += 1
+            if self.calls == 1:
+                return b"some partial bytes "
+            raise RuntimeError("simulated mid-transfer failure")
+
+    monkeypatch.setattr(
+        "urllib.request.urlopen", lambda *a, **kw: _FakeResp()
+    )
+
+    dest = tmp_path / "subdir" / "x.gz"
+    try:
+        _download("http://example.invalid/x", dest)
+    except RuntimeError:
+        pass
+    assert not dest.exists()
+    assert not (dest.parent / "x.gz.part").exists()
+
+
 def test_ensure_cached_synthetic_rejected(tmp_path) -> None:
     d = Dataset(
         name="syn",

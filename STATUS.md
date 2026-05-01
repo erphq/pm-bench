@@ -60,7 +60,18 @@ pm-bench fetch bpi2020 --pin
 
 ## Recently shipped
 
-- **Round-4 polish** (`round4-polish` branch).
+- **Round-4 polish (continued)** (`round4-polish` branch).
+  - `pm-bench compare` now annotates each metric delta with
+    `direction: "higher_is_better" | "lower_is_better"` and an
+    `improved: bool` flag.
+  - `pm-bench validate --repo-root <empty-dir>` (and `leaderboard
+    --all --verify`, and the single-board `leaderboard --verify`)
+    used to raw-traceback FileNotFoundError when the predictions
+    files were missing under the chosen repo-root. All three paths
+    now catch and report the missing path with exit 2.
+  - `_download` cleans up the `.part` file on a partial-transfer
+    failure rather than leaving an orphan blob in the cache dir.
+  - 6 new tests; 181 total, ruff clean.
   - `pm-bench compare` now annotates each metric delta with
     `direction: "higher_is_better" | "lower_is_better"` and an
     `improved: bool` flag (only for metrics with a known direction —
