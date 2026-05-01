@@ -10,6 +10,9 @@ datasets:
     cases: 13087
     events: 262200
     landing_url: "https://data.4tu.nl/articles/dataset/BPI_Challenge_2012/12689204"
+    # TODO (v0.1): resolve the direct .xes.gz download URL via the 4TU.ResearchData API.
+    #   e.g. GET https://data.4tu.nl/v3/articles/12689204/files
+    #   Pin sha256 after manual download + verification.
     download_url: null
     sha256: null
     license: "CC BY 4.0"
@@ -20,6 +23,9 @@ datasets:
     cases: 31509
     events: 1202267
     landing_url: "https://data.4tu.nl/articles/dataset/BPI_Challenge_2017/12696884"
+    # TODO (v0.1): resolve the direct .xes.gz download URL via the 4TU.ResearchData API.
+    #   e.g. GET https://data.4tu.nl/v3/articles/12696884/files
+    #   Pin sha256 after manual download + verification.
     download_url: null
     sha256: null
     license: "CC BY 4.0"
@@ -30,6 +36,9 @@ datasets:
     cases: 43809
     events: 2514266
     landing_url: "https://data.4tu.nl/articles/dataset/BPI_Challenge_2018/12688355"
+    # TODO (v0.1): resolve the direct .xes.gz download URL via the 4TU.ResearchData API.
+    #   e.g. GET https://data.4tu.nl/v3/articles/12688355/files
+    #   Pin sha256 after manual download + verification.
     download_url: null
     sha256: null
     license: "CC BY 4.0"
@@ -40,6 +49,9 @@ datasets:
     cases: 251734
     events: 1595923
     landing_url: "https://data.4tu.nl/articles/dataset/BPI_Challenge_2019/12715853"
+    # TODO (v0.1): resolve the direct .xes.gz download URL via the 4TU.ResearchData API.
+    #   e.g. GET https://data.4tu.nl/v3/articles/12715853/files
+    #   Pin sha256 after manual download + verification.
     download_url: null
     sha256: null
     license: "CC BY 4.0"
@@ -50,6 +62,10 @@ datasets:
     cases: 10500
     events: 76000
     landing_url: "https://data.4tu.nl/collections/_/5065541/1"
+    # TODO (v0.1): the 2020 collection contains multiple sub-datasets; decide
+    #   which sub-files to include and resolve individual download URLs.
+    #   Collection API: GET https://data.4tu.nl/v3/collections/5065541/articles
+    #   Pin sha256 per file after manual download + verification.
     download_url: null
     sha256: null
     license: "CC BY 4.0"
@@ -60,6 +76,9 @@ datasets:
     cases: 1050
     events: 15214
     landing_url: "https://data.4tu.nl/articles/dataset/Sepsis_Cases_-_Event_Log/12707639"
+    # TODO (v0.1): resolve the direct .xes.gz download URL via the 4TU.ResearchData API.
+    #   e.g. GET https://data.4tu.nl/v3/articles/12707639/files
+    #   Pin sha256 after manual download + verification.
     download_url: null
     sha256: null
     license: "CC BY 4.0"
@@ -70,6 +89,9 @@ datasets:
     cases: 4580
     events: 21348
     landing_url: "https://data.mendeley.com/datasets/39bp3vv62t/1"
+    # TODO (v0.1): resolve the Mendeley direct CSV download URL.
+    #   Mendeley Data API v1: GET https://data.mendeley.com/api/datasets/39bp3vv62t/versions/1
+    #   Look for the file with mimetype text/csv, then pin sha256.
     download_url: null
     sha256: null
     license: "CC BY 4.0"

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import sys
+from pathlib import Path
 
 import click
 
@@ -81,6 +82,40 @@ def split(name: str, task: str) -> None:
             indent=2,
         ),
     )
+
+
+@main.command(name="fetch")
+@click.argument("name")
+@click.option(
+    "--cache-dir",
+    "cache_dir_str",
+    default=None,
+    type=click.Path(),
+    help="Override cache directory (default: ~/.cache/pm-bench).",
+)
+def cmd_fetch(name: str, cache_dir_str: str | None) -> None:
+    """Download dataset NAME to the local cache.
+
+    NOTE: not yet implemented — see TODO.md for the v0.1 plan.
+    """
+    from pm_bench.fetch import fetch_dataset
+
+    cache_path = Path(cache_dir_str) if cache_dir_str else None
+    try:
+        path = fetch_dataset(name, cache_path)
+        click.echo(str(path))
+    except KeyError:
+        click.echo(f"unknown dataset: {name}", err=True)
+        sys.exit(1)
+    except ValueError as exc:
+        click.echo(str(exc), err=True)
+        sys.exit(1)
+    except NotImplementedError:
+        click.echo(
+            "fetch_dataset is not yet implemented — see TODO.md for v0.1 plan",
+            err=True,
+        )
+        sys.exit(1)
 
 
 if __name__ == "__main__":
