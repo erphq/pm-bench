@@ -60,6 +60,13 @@ pm-bench fetch bpi2020 --pin
 
 ## Recently shipped
 
+- **`synthetic-toy@<seed>` syntax** (`synthetic-seed-flag` branch).
+  - Pass `synthetic-toy@99` to any command that takes a dataset name
+    and the generator runs at that seed (default still seed=42 for
+    canonical leaderboard runs).
+  - Lets users do quick variance experiments without scripting Python
+    or polluting the CLI with a `--seed` flag on every verb.
+  - 2 new tests; 134 total, ruff clean.
 - **CONTRIBUTING.md** (`contributing-doc` branch).
   - Step-by-step submission walkthrough: pipeline commands per task,
     file format table, pre-PR checklist, noise-quantification call

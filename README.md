@@ -163,6 +163,11 @@ flowchart LR
   SC --> LB[leaderboard<br/>JSON in repo]
 ```
 
+**Variance experiments.** Use `synthetic-toy@<seed>` (e.g.
+`synthetic-toy@99`) to run the generator at a non-canonical seed
+without losing reproducibility — bare `synthetic-toy` always means
+seed=42 for the leaderboard.
+
 ## ✦ Baseline variance
 
 Reference numbers in [STANDINGS.md](./STANDINGS.md) are computed at a

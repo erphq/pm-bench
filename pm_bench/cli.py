@@ -72,8 +72,12 @@ from pm_bench.stats import summarize
 def _load_events(name: str) -> list:
     """Return a materialized event list for a dataset.
 
-    Three supported inputs:
-    - `synthetic-toy` → bundled deterministic generator
+    Supported inputs:
+    - `synthetic-toy` → bundled deterministic generator (seed=42)
+    - `synthetic-toy@<seed>` → same generator at a different seed (e.g.
+      `synthetic-toy@99`). The `@<seed>` suffix is for variance
+      experiments; canonical leaderboard runs always use bare
+      `synthetic-toy`.
     - any path that looks like a CSV (`.csv` / `.csv.gz` / contains `/`)
       → loaded via `pm_bench.io.read_csv_log`
     - any other registry name → not yet wired (v0.1 fetch machinery
@@ -92,9 +96,18 @@ def _load_events(name: str) -> list:
             sys.exit(2)
     if name == "synthetic-toy":
         return list(_synth.synthetic_log())
+    if name.startswith("synthetic-toy@"):
+        seed_str = name.split("@", 1)[1]
+        try:
+            seed = int(seed_str)
+        except ValueError:
+            click.echo(f"bad seed in {name!r}: must be an integer", err=True)
+            sys.exit(1)
+        return list(_synth.synthetic_log(seed=seed))
     click.echo(
-        f"unknown dataset: {name}. Use 'synthetic-toy', a CSV path, or wait "
-        "for the v0.1 fetch machinery to wire your registry entry.",
+        f"unknown dataset: {name}. Use 'synthetic-toy', 'synthetic-toy@<seed>', "
+        "a CSV path, or wait for the v0.1 fetch machinery to wire your "
+        "registry entry.",
         err=True,
     )
     sys.exit(1)

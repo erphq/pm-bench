@@ -89,3 +89,27 @@ def test_cli_unknown_name_errors_clearly() -> None:
     r = runner.invoke(main, ["split", "no-such-thing"])
     assert r.exit_code == 1
     assert "unknown dataset" in r.output or "v0 only" in r.output
+
+
+def test_synthetic_seed_suffix_changes_split() -> None:
+    """`synthetic-toy@<seed>` runs the generator at that seed."""
+    runner = CliRunner()
+    r1 = runner.invoke(main, ["split", "synthetic-toy"])
+    r2 = runner.invoke(main, ["split", "synthetic-toy@99"])
+    assert r1.exit_code == 0
+    assert r2.exit_code == 0
+    # Different seeds → different test partitions (case ids overlap, but
+    # the path each takes is different, so the prefix counts differ).
+    import json as _json
+    assert r1.output != r2.output
+    d1 = _json.loads(r1.output)
+    d2 = _json.loads(r2.output)
+    # Total case count is identical (n_cases default = 200).
+    assert sum(d1["sizes"].values()) == sum(d2["sizes"].values()) == 200
+
+
+def test_synthetic_seed_bad_int_fails_clearly() -> None:
+    runner = CliRunner()
+    r = runner.invoke(main, ["split", "synthetic-toy@not-an-int"])
+    assert r.exit_code == 1
+    assert "bad seed" in r.output
