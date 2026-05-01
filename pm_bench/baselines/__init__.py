@@ -25,6 +25,7 @@ from pm_bench.baselines.prior_outcome import (
     read_outcome_predictions_csv,
     write_outcome_predictions_csv,
 )
+from pm_bench.baselines.uniform import UniformBaseline, fit_uniform, predict_uniform
 
 __all__ = [
     "MarkovBaseline",
@@ -33,13 +34,16 @@ __all__ = [
     "OutcomePrediction",
     "PriorOutcomeBaseline",
     "TimePrediction",
+    "UniformBaseline",
     "fit_mean_time",
     "fit_mean_wait",
     "fit_prior_outcome",
+    "fit_uniform",
     "predict_markov",
     "predict_mean_time",
     "predict_mean_wait",
     "predict_prior_outcome",
+    "predict_uniform",
     "read_outcome_predictions_csv",
     "read_time_predictions_csv",
     "write_outcome_predictions_csv",

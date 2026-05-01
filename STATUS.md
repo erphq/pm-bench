@@ -60,6 +60,19 @@ pm-bench fetch bpi2020 --pin
 
 ## Recently shipped
 
+- **Uniform second baseline + multi-entry leaderboard demo**
+  (`uniform-baseline` branch).
+  - `pm_bench/baselines/uniform.py` — ranks every training-set
+    activity in lexicographic order, identical for every prefix. The
+    "didn't read the trace at all" floor.
+  - `predict --baseline uniform` for next-event.
+  - `leaderboard/next-event/synthetic-toy.json` now has **2 entries**:
+    markov-ref top-1 0.9304 vs uniform-ref top-1 0.2025. Standings
+    sort puts markov on top.
+  - Demonstrates the leaderboard scales to multiple submissions on
+    one (task, dataset) pair — a precondition for accepting external
+    submissions.
+  - 1 new test asserting the standings order; 117 total.
 - **`pm-bench stats <name>`** (`stats-command` branch).
   - One-shot summary stats for any log: n_cases, n_events,
     n_activities, time span, mean/median case length, top-N

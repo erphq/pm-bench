@@ -81,6 +81,17 @@ def test_cli_leaderboard_verify_passes() -> None:
     assert "no drift" in r.output
 
 
+def test_next_event_board_has_multiple_entries_sorted() -> None:
+    """When >1 entry exists on a board, standings must put the best first."""
+    board = load_board(BOARD_PATH)
+    assert len(board.entries) >= 2
+    s = standings(board)
+    assert s[0].score["top1"] >= s[1].score["top1"]
+    # Sanity: the markov-ref must beat the uniform-ref.
+    models = [e.model for e in s]
+    assert models.index("markov-ref") < models.index("uniform-ref")
+
+
 def test_outcome_board_loads_and_verifies() -> None:
     p = REPO_ROOT / "leaderboard" / "outcome" / "synthetic-toy.json"
     board = load_board(p)

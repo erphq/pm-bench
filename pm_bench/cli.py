@@ -21,6 +21,7 @@ from pm_bench.baselines.prior_outcome import (
     read_outcome_predictions_csv,
     write_outcome_predictions_csv,
 )
+from pm_bench.baselines.uniform import fit_uniform, predict_uniform
 from pm_bench.bottleneck import (
     extract_bottleneck_targets,
     read_bottleneck_predictions_csv,
@@ -356,11 +357,11 @@ def prefixes(name: str, split_path: str, out_path: str, partition: str, task: st
 )
 @click.option(
     "--baseline",
-    type=click.Choice(["markov", "mean", "prior", "mean-wait"]),
+    type=click.Choice(["markov", "uniform", "mean", "prior", "mean-wait"]),
     default="markov",
     show_default=True,
     help=(
-        "markov → next-event; mean → remaining-time; "
+        "markov / uniform → next-event; mean → remaining-time; "
         "prior → outcome; mean-wait → bottleneck."
     ),
 )
@@ -386,11 +387,15 @@ def predict(
         split_data = json.load(f)
 
     if task == "next-event":
-        if baseline != "markov":
+        if baseline not in ("markov", "uniform"):
             raise click.UsageError(f"baseline {baseline!r} doesn't apply to next-event")
-        model = fit_markov(events, split_data["train"])
         targets = read_prefixes_csv(prefixes_path)
-        preds = predict_markov(model, targets)
+        if baseline == "markov":
+            model = fit_markov(events, split_data["train"])
+            preds = predict_markov(model, targets)
+        else:
+            uni_model = fit_uniform(events, split_data["train"])
+            preds = predict_uniform(uni_model, targets)
         n = write_predictions_csv(preds, out_path)
     elif task == "remaining-time":
         if baseline != "mean":

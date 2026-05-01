@@ -22,6 +22,7 @@ _top1 / top3 accuracy_
 | Model | top1 | top3 | n |
 |---|---:|---:|---:|
 | `markov-ref` | 0.9304 | 1.0000 | 158 |
+| `uniform-ref` | 0.2025 | 0.2785 | 158 |
 
 ### outcome · synthetic-toy
 _ROC AUC (higher is better)_

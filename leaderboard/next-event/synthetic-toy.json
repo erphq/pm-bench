@@ -22,6 +22,20 @@
       },
       "scored_at": "2026-04-30T00:00:00Z",
       "notes": "First-order Markov reference baseline shipped with pm-bench. Trained on the train partition only; falls back to unigram for unseen last-activities. The floor any 'real' sequence model has to clear."
+    },
+    {
+      "model": "uniform-ref",
+      "version": "0.1.0",
+      "predictions_path": "leaderboard/predictions/next-event/synthetic-toy/uniform-ref.csv.gz",
+      "code": "https://github.com/erphq/pm-bench/blob/main/pm_bench/baselines/uniform.py",
+      "paper": null,
+      "score": {
+        "top1": 0.20253164556962025,
+        "top3": 0.27848101265822783,
+        "n": 158
+      },
+      "scored_at": "2026-04-30T00:00:00Z",
+      "notes": "Lexicographic ranking of all training-set activities, identical for every prefix. Doesn't peek at the trace at all; gives the absolute floor a model must clear to claim it's reading anything."
     }
   ]
 }
