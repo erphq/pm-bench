@@ -8,6 +8,12 @@ import click
 
 from pm_bench import _synth
 from pm_bench.baselines.markov import fit_markov, predict_markov
+from pm_bench.baselines.mean_time import (
+    fit_mean_time,
+    predict_mean_time,
+    read_time_predictions_csv,
+    write_time_predictions_csv,
+)
 from pm_bench.fetch import (
     FetchError,
     ManualFetchRequired,
@@ -16,9 +22,16 @@ from pm_bench.fetch import (
 )
 from pm_bench.leaderboard import load_board, standings, verify
 from pm_bench.predictions import read_predictions_csv, write_predictions_csv
-from pm_bench.prefixes import extract_prefixes, read_prefixes_csv, write_prefixes_csv
+from pm_bench.prefixes import (
+    extract_prefixes,
+    extract_remaining_time_targets,
+    read_prefixes_csv,
+    read_time_targets_csv,
+    write_prefixes_csv,
+    write_time_targets_csv,
+)
 from pm_bench.registry import get_dataset, load_registry
-from pm_bench.score import score_next_event
+from pm_bench.score import score_next_event, score_remaining_time
 from pm_bench.split import case_chrono_split
 
 
@@ -188,18 +201,30 @@ def split(name: str, task: str) -> None:
     show_default=True,
     help="Which split partition to emit prefixes for. The leaderboard scores 'test'.",
 )
-def prefixes(name: str, split_path: str, out_path: str, partition: str) -> None:
-    """Emit prediction targets (prefix → true-next) for a partition.
+@click.option(
+    "--task",
+    type=click.Choice(["next-event", "remaining-time"]),
+    default="next-event",
+    show_default=True,
+)
+def prefixes(name: str, split_path: str, out_path: str, partition: str, task: str) -> None:
+    """Emit prediction targets for a partition.
 
-    The output is the truth file scoring runs against. Submissions
-    write a predictions.csv with the same `(case_id, prefix_idx)` keys.
+    For `next-event`: rows are `(case_id, prefix_idx, prefix, true_next)`.
+    For `remaining-time`: rows are `(case_id, prefix_idx, remaining_days)`.
+    The (case_id, prefix_idx) keys join across the two truth files.
     """
     events = _load_events(name)
     with open(split_path) as f:
         split_data = json.load(f)
     case_ids = split_data[partition]
-    n = write_prefixes_csv(extract_prefixes(events, case_ids), out_path)
-    click.echo(f"wrote {n} prefixes to {out_path} (partition={partition})")
+    if task == "next-event":
+        n = write_prefixes_csv(extract_prefixes(events, case_ids), out_path)
+    else:
+        n = write_time_targets_csv(
+            extract_remaining_time_targets(events, case_ids), out_path
+        )
+    click.echo(f"wrote {n} prefixes to {out_path} (task={task} partition={partition})")
 
 
 @main.command()
@@ -225,8 +250,15 @@ def prefixes(name: str, split_path: str, out_path: str, partition: str) -> None:
 )
 @click.option(
     "--baseline",
-    type=click.Choice(["markov"]),
+    type=click.Choice(["markov", "mean"]),
     default="markov",
+    show_default=True,
+    help="markov → next-event; mean → remaining-time.",
+)
+@click.option(
+    "--task",
+    type=click.Choice(["next-event", "remaining-time"]),
+    default="next-event",
     show_default=True,
 )
 def predict(
@@ -235,19 +267,28 @@ def predict(
     prefixes_path: str,
     out_path: str,
     baseline: str,
+    task: str,
 ) -> None:
     """Run a reference baseline and emit predictions.csv."""
     events = _load_events(name)
     with open(split_path) as f:
         split_data = json.load(f)
-    if baseline != "markov":
-        # click already restricts the choice; this is a guard for the future.
-        raise click.UsageError(f"unknown baseline: {baseline}")
-    model = fit_markov(events, split_data["train"])
-    targets = read_prefixes_csv(prefixes_path)
-    preds = predict_markov(model, targets)
-    n = write_predictions_csv(preds, out_path)
-    click.echo(f"wrote {n} predictions to {out_path} (baseline={baseline})")
+
+    if task == "next-event":
+        if baseline != "markov":
+            raise click.UsageError(f"baseline {baseline!r} doesn't apply to next-event")
+        model = fit_markov(events, split_data["train"])
+        targets = read_prefixes_csv(prefixes_path)
+        preds = predict_markov(model, targets)
+        n = write_predictions_csv(preds, out_path)
+    else:
+        if baseline != "mean":
+            raise click.UsageError(f"baseline {baseline!r} doesn't apply to remaining-time")
+        time_model = fit_mean_time(events, split_data["train"])
+        time_targets = read_time_targets_csv(prefixes_path)
+        time_preds = predict_mean_time(time_model, time_targets)
+        n = write_time_predictions_csv(time_preds, out_path)
+    click.echo(f"wrote {n} predictions to {out_path} (task={task} baseline={baseline})")
 
 
 @main.command()
@@ -259,33 +300,62 @@ def predict(
     required=True,
     help="Truth file from `pm-bench prefixes`.",
 )
-@click.option("--task", default="next-event", show_default=True)
+@click.option(
+    "--task",
+    type=click.Choice(["next-event", "remaining-time"]),
+    default="next-event",
+    show_default=True,
+)
 def score(predictions_path: str, prefixes_path: str, task: str) -> None:
     """Score predictions against the truth file."""
-    if task != "next-event":
-        click.echo(f"v0 only scores 'next-event' (got {task})", err=True)
-        sys.exit(1)
-    truth_rows = read_prefixes_csv(prefixes_path)
-    pred_rows = read_predictions_csv(predictions_path)
-    pred_lookup = {(p.case_id, p.prefix_idx): p.ranked for p in pred_rows}
+    if task == "next-event":
+        truth_rows = read_prefixes_csv(prefixes_path)
+        pred_rows = read_predictions_csv(predictions_path)
+        pred_lookup = {(p.case_id, p.prefix_idx): p.ranked for p in pred_rows}
+        missing = [
+            (t.case_id, t.prefix_idx)
+            for t in truth_rows
+            if (t.case_id, t.prefix_idx) not in pred_lookup
+        ]
+        if missing:
+            click.echo(
+                f"predictions.csv is missing {len(missing)} target(s); "
+                f"first: {missing[0]}",
+                err=True,
+            )
+            sys.exit(2)
+        ranked = [list(pred_lookup[(t.case_id, t.prefix_idx)]) for t in truth_rows]
+        truth = [t.true_next for t in truth_rows]
+        s = score_next_event(ranked, truth)
+        click.echo(
+            json.dumps(
+                {"task": task, "top1": s.top1, "top3": s.top3, "n": s.n},
+                indent=2,
+            ),
+        )
+        return
+
+    # remaining-time
+    truth_time = read_time_targets_csv(prefixes_path)
+    pred_time = read_time_predictions_csv(predictions_path)
+    pred_t_lookup = {(p.case_id, p.prefix_idx): p.predicted_days for p in pred_time}
     missing = [
         (t.case_id, t.prefix_idx)
-        for t in truth_rows
-        if (t.case_id, t.prefix_idx) not in pred_lookup
+        for t in truth_time
+        if (t.case_id, t.prefix_idx) not in pred_t_lookup
     ]
     if missing:
         click.echo(
-            f"predictions.csv is missing {len(missing)} target(s); "
-            f"first: {missing[0]}",
+            f"predictions is missing {len(missing)} target(s); first: {missing[0]}",
             err=True,
         )
         sys.exit(2)
-    ranked = [list(pred_lookup[(t.case_id, t.prefix_idx)]) for t in truth_rows]
-    truth = [t.true_next for t in truth_rows]
-    s = score_next_event(ranked, truth)
+    preds_floats = [pred_t_lookup[(t.case_id, t.prefix_idx)] for t in truth_time]
+    truth_floats = [t.remaining_days for t in truth_time]
+    rt = score_remaining_time(preds_floats, truth_floats)
     click.echo(
         json.dumps(
-            {"task": task, "top1": s.top1, "top3": s.top3, "n": s.n},
+            {"task": task, "mae_days": rt.mae_days, "n": rt.n},
             indent=2,
         ),
     )
@@ -375,12 +445,16 @@ def leaderboard(
     click.echo(f"{board.task} · {board.dataset} · {board.metric}")
     click.echo("-" * (width + 30))
     for e in standings(board):
-        top1 = e.score.get("top1")
-        top3 = e.score.get("top3")
         n = e.score.get("n")
-        click.echo(
-            f"{e.model:<{width}}  top1={top1:.4f}  top3={top3:.4f}  n={n}"
-        )
+        if board.task == "remaining-time":
+            mae = e.score.get("mae_days")
+            click.echo(f"{e.model:<{width}}  mae_days={mae:.4f}  n={n}")
+        else:
+            top1 = e.score.get("top1")
+            top3 = e.score.get("top3")
+            click.echo(
+                f"{e.model:<{width}}  top1={top1:.4f}  top3={top3:.4f}  n={n}"
+            )
 
 
 if __name__ == "__main__":

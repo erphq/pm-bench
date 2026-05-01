@@ -22,8 +22,14 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from pm_bench.predictions import Prediction
-from pm_bench.prefixes import PREFIX_SEP, Prefix, extract_prefixes
-from pm_bench.score import score_next_event
+from pm_bench.prefixes import (
+    PREFIX_SEP,
+    Prefix,
+    TimeTarget,
+    extract_prefixes,
+    extract_remaining_time_targets,
+)
+from pm_bench.score import score_next_event, score_remaining_time
 
 
 @dataclass(frozen=True)
@@ -88,8 +94,8 @@ def _open_predictions(path: Path) -> Iterable[Prediction]:
             )
 
 
-def _truth_for_dataset(name: str) -> list[Prefix]:
-    """Build the canonical truth set for a known dataset.
+def _events_and_test_cases(name: str):
+    """Return (events, test_case_ids) for a known dataset.
 
     Today only `synthetic-toy` is supported — once a real dataset is
     pinned this dispatch grows a branch per dataset, gated on the cached
@@ -101,24 +107,33 @@ def _truth_for_dataset(name: str) -> list[Prefix]:
 
         events = list(_synth.synthetic_log())
         s = case_chrono_split(events)
-        return list(extract_prefixes(events, s.test))
+        return events, s.test
     raise ValueError(
         f"truth for dataset {name!r} not yet wired; pin a registry hash "
         "and add the dispatch branch"
     )
 
 
-def rescore(board: Board, repo_root: str | Path = ".") -> list[tuple[Entry, dict]]:
-    """Re-run scoring for every entry; return (entry, fresh_score) pairs."""
-    if board.task != "next-event":
-        raise ValueError(f"rescore only supports next-event today (got {board.task})")
+def _truth_for_dataset(name: str) -> list[Prefix]:
+    """Canonical next-event truth set for a known dataset."""
+    events, test_cases = _events_and_test_cases(name)
+    return list(extract_prefixes(events, test_cases))
+
+
+def _time_truth_for_dataset(name: str) -> list[TimeTarget]:
+    """Canonical remaining-time truth set for a known dataset."""
+    events, test_cases = _events_and_test_cases(name)
+    return list(extract_remaining_time_targets(events, test_cases))
+
+
+def _rescore_next_event(board: Board, repo_root: Path) -> list[tuple[Entry, dict]]:
     truth = _truth_for_dataset(board.dataset)
     truth_keys = [(t.case_id, t.prefix_idx) for t in truth]
     truth_next = [t.true_next for t in truth]
 
     out: list[tuple[Entry, dict]] = []
     for entry in board.entries:
-        pred_path = Path(repo_root) / entry.predictions_path
+        pred_path = repo_root / entry.predictions_path
         pred_lookup = {
             (p.case_id, p.prefix_idx): list(p.ranked)
             for p in _open_predictions(pred_path)
@@ -131,19 +146,55 @@ def rescore(board: Board, repo_root: str | Path = ".") -> list[tuple[Entry, dict
             )
         ranked = [pred_lookup[k] for k in truth_keys]
         s = score_next_event(ranked, truth_next)
-        out.append(
-            (entry, {"top1": s.top1, "top3": s.top3, "n": s.n}),
-        )
+        out.append((entry, {"top1": s.top1, "top3": s.top3, "n": s.n}))
     return out
+
+
+def _rescore_remaining_time(board: Board, repo_root: Path) -> list[tuple[Entry, dict]]:
+    import csv
+    import gzip
+
+    truth = _time_truth_for_dataset(board.dataset)
+    truth_keys = [(t.case_id, t.prefix_idx) for t in truth]
+    truth_floats = [t.remaining_days for t in truth]
+
+    out: list[tuple[Entry, dict]] = []
+    for entry in board.entries:
+        pred_path = repo_root / entry.predictions_path
+        opener = gzip.open if str(pred_path).endswith(".gz") else open
+        pred_lookup: dict[tuple[str, int], float] = {}
+        with opener(pred_path, "rt", newline="") as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                pred_lookup[(row["case_id"], int(row["prefix_idx"]))] = float(row["predicted_days"])
+        missing = [k for k in truth_keys if k not in pred_lookup]
+        if missing:
+            raise ValueError(
+                f"{entry.model}: predictions missing {len(missing)} target(s); "
+                f"first missing {missing[0]}"
+            )
+        preds = [pred_lookup[k] for k in truth_keys]
+        s = score_remaining_time(preds, truth_floats)
+        out.append((entry, {"mae_days": s.mae_days, "n": s.n}))
+    return out
+
+
+def rescore(board: Board, repo_root: str | Path = ".") -> list[tuple[Entry, dict]]:
+    """Re-run scoring for every entry; return (entry, fresh_score) pairs."""
+    root = Path(repo_root)
+    if board.task == "next-event":
+        return _rescore_next_event(board, root)
+    if board.task == "remaining-time":
+        return _rescore_remaining_time(board, root)
+    raise ValueError(f"unknown task: {board.task}")
 
 
 def verify(board: Board, repo_root: str | Path = ".", *, tol: float = 1e-9) -> list[str]:
     """Return a list of human-readable drift messages (empty = clean)."""
     drifts: list[str] = []
     for entry, fresh in rescore(board, repo_root=repo_root):
-        for k in ("top1", "top3", "n"):
+        for k, actual in fresh.items():
             recorded = entry.score.get(k)
-            actual = fresh[k]
             ok = recorded == actual if isinstance(actual, int) else (
                 recorded is not None and math.isclose(recorded, actual, abs_tol=tol)
             )
@@ -154,6 +205,18 @@ def verify(board: Board, repo_root: str | Path = ".", *, tol: float = 1e-9) -> l
     return drifts
 
 
-def standings(board: Board, *, key: str = "top1") -> list[Entry]:
-    """Return entries sorted by the given score key, descending."""
+def standings(board: Board, *, key: str | None = None) -> list[Entry]:
+    """Return entries sorted by the appropriate score key.
+
+    Direction follows the metric: top1 (higher better) for next-event,
+    mae_days (lower better) for remaining-time. Pass `key` explicitly to
+    override.
+    """
+    if key is None:
+        if board.task == "remaining-time":
+            return sorted(
+                board.entries,
+                key=lambda e: e.score.get("mae_days", float("inf")),
+            )
+        key = "top1"
     return sorted(board.entries, key=lambda e: e.score.get(key, float("-inf")), reverse=True)

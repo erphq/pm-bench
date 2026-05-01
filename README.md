@@ -220,8 +220,9 @@ honesty. The point of the benchmark is to make the comparison real.
       shipped (`pm-bench fetch <name> [--pin]`, sha256 verification,
       `$PM_BENCH_CACHE` resolution); per-dataset hash-pinning PRs
       pending the one-time TOS-gated downloads from 4TU and Mendeley.
-- [ ] v0.2 — splits: next-event, remaining-time
-- [ ] v0.3 — scoring scripts for all 5 tasks
+- [x] v0.2 — splits + targets for next-event ✅ and remaining-time ✅
+- [🟡] v0.3 — scoring scripts for all 5 tasks. next-event ✅ and
+      remaining-time ✅; outcome / conformance / bottleneck remain.
 - [🟡] v0.4 — leaderboard CI + landing page. Standings format,
       reference Markov entry, `pm-bench leaderboard [--all] --verify`,
       and the dedicated `leaderboard.yml` GitHub workflow shipped;

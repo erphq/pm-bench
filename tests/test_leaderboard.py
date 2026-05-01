@@ -17,6 +17,7 @@ from pm_bench.leaderboard import load_board, rescore, standings, verify
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 BOARD_PATH = REPO_ROOT / "leaderboard" / "next-event" / "synthetic-toy.json"
+TIME_BOARD_PATH = REPO_ROOT / "leaderboard" / "remaining-time" / "synthetic-toy.json"
 
 
 def test_synthetic_toy_board_loads() -> None:
@@ -71,6 +72,14 @@ def test_cli_leaderboard_verify_passes() -> None:
     )
     assert r.exit_code == 0, r.output
     assert "no drift" in r.output
+
+
+def test_remaining_time_board_loads_and_verifies() -> None:
+    board = load_board(TIME_BOARD_PATH)
+    assert board.task == "remaining-time"
+    assert len(board.entries) >= 1
+    drifts = verify(board, repo_root=REPO_ROOT)
+    assert drifts == [], drifts
 
 
 def test_cli_leaderboard_all_verify_passes() -> None:

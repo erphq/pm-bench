@@ -1,0 +1,26 @@
+{
+  "task": "remaining-time",
+  "dataset": "synthetic-toy",
+  "metric": "MAE in days (lower is better)",
+  "scored_with": "pm_bench.score.score_remaining_time",
+  "split": {
+    "kind": "case-chrono",
+    "train_frac": 0.7,
+    "val_frac": 0.1
+  },
+  "entries": [
+    {
+      "model": "mean-ref",
+      "version": "0.1.0",
+      "predictions_path": "leaderboard/predictions/remaining-time/synthetic-toy/mean-ref.csv.gz",
+      "code": "https://github.com/erphq/pm-bench/blob/main/pm_bench/baselines/mean_time.py",
+      "paper": null,
+      "score": {
+        "mae_days": 1.2546469315499607,
+        "n": 41
+      },
+      "scored_at": "2026-04-30T00:00:00Z",
+      "notes": "Constant prediction = mean remaining-time observed on training prefixes. The dumbest model that still respects the train/test split — the floor any temporal model must clear."
+    }
+  ]
+}

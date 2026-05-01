@@ -60,6 +60,21 @@ pm-bench fetch bpi2020 --pin
 
 ## Recently shipped
 
+- **Remaining-time task** (`remaining-time` branch).
+  - `score_remaining_time` (MAE in days), prefixes/predictions
+    formats parallel to next-event so models share a loader.
+  - `pm_bench/baselines/mean_time.py` — mean-of-train reference.
+    On synthetic-toy: MAE 1.255 days. Floor for any temporal model.
+  - CLI: `prefixes`, `predict`, `score` all dispatch on
+    `--task {next-event,remaining-time}`. Single command surface,
+    two tasks.
+  - `leaderboard.py` rescore + standings handle both tasks; standings
+    sorts ascending for MAE, descending for accuracy.
+  - `leaderboard/remaining-time/synthetic-toy.json` with the
+    mean-ref entry; reference predictions checked in alongside.
+  - 8 new tests covering extraction, baseline determinism, CSV
+    round-trip, e2e click-runner pipeline, and leaderboard verify.
+    59 total.
 - **Leaderboard CI workflow** (`leaderboard-ci` branch).
   - `pm-bench leaderboard --all [--verify]` walks every standings
     file under `leaderboard/` so contributors and CI run the same
