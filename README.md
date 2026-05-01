@@ -163,6 +163,20 @@ flowchart LR
   SC --> LB[leaderboard<br/>JSON in repo]
 ```
 
+## ✦ Baseline variance
+
+Reference numbers in [STANDINGS.md](./STANDINGS.md) are computed at a
+single canonical seed (`seed=42`). To see how much performance jitters
+across data draws, run:
+
+```bash
+python -m bench.seeds --n 30
+```
+
+Emits a markdown table of mean / std / min / max per metric across N
+seeds — the noise band any submission has to clear before a claim of
+"better than the baseline" is statistically interesting.
+
 ## ✦ Current standings
 
 Live numbers per (task, dataset) - auto-generated and verified in CI:

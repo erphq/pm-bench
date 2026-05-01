@@ -60,6 +60,19 @@ pm-bench fetch bpi2020 --pin
 
 ## Recently shipped
 
+- **`bench/seeds.py` cross-seed variance harness** (`seeds-variance`
+  branch).
+  - `python -m bench.seeds --n 30` runs each baseline at 30 seeds of
+    the synthetic generator and prints mean / std / min / max per
+    metric. Quantifies the noise band any "real" submission must
+    clear to be statistically interesting.
+  - First measurement (n=5): markov top-1 0.9183 ± 0.0111, mean-time
+    MAE 1.284 ± 0.045, prior outcome AUC 0.634 ± 0.005, mean-wait
+    NDCG@10 0.927 ± 0.017, dfg F 0.988 ± 0.024.
+  - 4 new tests; 132 total, ruff clean.
+- **HTTP fetch test** (`http-fetch-test` branch). Daemon-threaded
+  http.server on an ephemeral port; verifies ensure_cached's
+  download + cache-hit path. 124 tests.
 - **`pm-bench compare board_a.json board_b.json`** (`compare-command`
   branch).
   - Diff two leaderboard JSON files. Per-model score deltas as JSON;
