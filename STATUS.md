@@ -60,6 +60,13 @@ pm-bench fetch bpi2020 --pin
 
 ## Recently shipped
 
+- **`pm-bench validate <board.json>`** (`validate-command` branch).
+  - One-shot pre-flight: schema check + score rescore on a single
+    leaderboard file. Exits 0 / 2 with clear schema-prefixed or
+    score-prefixed errors.
+  - `--no-rescore` for a fast schema-only sanity check.
+  - 4 new tests; 147 total, ruff clean.
+  - CONTRIBUTING.md now points at it as the recommended pre-PR step.
 - **JSON Schema for leaderboard files** (`leaderboard-schema` branch).
   - `pm_bench/leaderboard_schema.py:validate_board(dict) → list[str]`
     — stdlib-only structural checker; clear error paths

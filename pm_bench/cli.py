@@ -45,6 +45,7 @@ from pm_bench.leaderboard import (
     standings,
     verify,
 )
+from pm_bench.leaderboard_schema import validate_board
 from pm_bench.predictions import read_predictions_csv, write_predictions_csv
 from pm_bench.prefixes import (
     extract_outcome_targets,
@@ -789,6 +790,51 @@ def leaderboard(
             click.echo(
                 f"{e.model:<{width}}  top1={top1:.4f}  top3={top3:.4f}  n={n}"
             )
+
+
+@main.command()
+@click.argument("board_path", type=click.Path(exists=True, dir_okay=False))
+@click.option(
+    "--repo-root",
+    type=click.Path(exists=True, file_okay=False),
+    default=".",
+    show_default=True,
+)
+@click.option(
+    "--no-rescore",
+    is_flag=True,
+    default=False,
+    help="Skip the score-rescore step. Schema check still runs.",
+)
+def validate(board_path: str, repo_root: str, no_rescore: bool) -> None:
+    """Validate a leaderboard JSON file: schema + score correctness.
+
+    Runs both checks a CI submission PR would run, in one command:
+    structural schema validation, then a fresh rescore against the
+    referenced predictions. `--no-rescore` for a fast schema-only check.
+    """
+    import json as _json
+
+    raw = _json.loads(open(board_path).read())  # noqa: SIM115
+    schema_errors = validate_board(raw)
+    if schema_errors:
+        for e in schema_errors:
+            click.echo(f"schema: {e}", err=True)
+        sys.exit(2)
+
+    if no_rescore:
+        click.echo(f"{board_path}: schema OK ({len(raw['entries'])} entr(ies))")
+        return
+
+    board = load_board(board_path)
+    drifts = verify(board, repo_root=repo_root)
+    if drifts:
+        for d in drifts:
+            click.echo(f"score: {d}", err=True)
+        sys.exit(2)
+    click.echo(
+        f"{board_path}: schema + scores OK ({len(board.entries)} entr(ies))"
+    )
 
 
 @main.command()

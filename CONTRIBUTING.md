@@ -97,12 +97,21 @@ Append an entry to `leaderboard/<task>/<dataset>.json`:
 
 ### 5. Verify and regenerate STANDINGS.md
 
+Pre-flight on the file you just touched:
+
+```bash
+pm-bench validate leaderboard/<task>/<dataset>.json
+```
+
+That runs schema check + score rescore in one shot — exactly what CI
+will run on your PR. Then regenerate the standings doc:
+
 ```bash
 pm-bench leaderboard --all --verify
 pm-bench leaderboard --all --markdown > STANDINGS.md
 ```
 
-Both must succeed before the PR can land — CI runs them. Open the PR
+All three must succeed before the PR can land — CI runs them. Open the PR
 with a one-line summary of the result and how it compares to the
 existing reference.
 
