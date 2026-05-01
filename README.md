@@ -118,10 +118,22 @@ pm-bench score predictions.csv \
 
 The full loop (`split → prefixes → predict → score`) runs end-to-end on
 `synthetic-toy` today; it's covered by `tests/test_e2e.py` and locks
-the file formats the leaderboard depends on. BPI / Sepsis / Helpdesk
-will use the same commands once v0.1's fetch+cache machinery lands —
-4TU's interactive TOS makes the download itself a one-time manual
-step, but everything downstream is automated.
+the file formats the leaderboard depends on.
+
+For the public datasets, the fetch + hash machinery is in place:
+
+```bash
+pm-bench fetch bpi2020                    # auto-downloads if URL is set
+pm-bench fetch bpi2020 --pin              # after manual TOS-gated download,
+                                          # emits a registry.yml sha256 patch
+```
+
+`pm-bench fetch` resolves a cache directory (`$PM_BENCH_CACHE`, else
+`~/.cache/pm-bench/`), verifies the registry sha256 if pinned, and —
+for TOS-gated 4TU / Mendeley datasets — prints the precise landing URL
+and on-disk path you need to fill in. The per-dataset hash pins are the
+last manual step before BPI / Sepsis / Helpdesk run through the same
+loop as `synthetic-toy`.
 
 The full pipeline:
 
@@ -204,7 +216,10 @@ honesty. The point of the benchmark is to make the comparison real.
 - [x] v0.0.1 — end-to-end loop on `synthetic-toy`: split → prefixes →
       predict (Markov) → score, with a smoke test that locks the file
       formats
-- [ ] v0.1 — fetch + cache + hash for all 7 datasets
+- [🟡] v0.1 — fetch + cache + hash for all 7 datasets. Machinery
+      shipped (`pm-bench fetch <name> [--pin]`, sha256 verification,
+      `$PM_BENCH_CACHE` resolution); per-dataset hash-pinning PRs
+      pending the one-time TOS-gated downloads from 4TU and Mendeley.
 - [ ] v0.2 — splits: next-event, remaining-time
 - [ ] v0.3 — scoring scripts for all 5 tasks
 - [ ] v0.4 — leaderboard CI + landing page

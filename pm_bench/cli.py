@@ -8,6 +8,12 @@ import click
 
 from pm_bench import _synth
 from pm_bench.baselines.markov import fit_markov, predict_markov
+from pm_bench.fetch import (
+    FetchError,
+    ManualFetchRequired,
+    ensure_cached,
+    sha256_file,
+)
 from pm_bench.predictions import read_predictions_csv, write_predictions_csv
 from pm_bench.prefixes import extract_prefixes, read_prefixes_csv, write_prefixes_csv
 from pm_bench.registry import get_dataset, load_registry
@@ -69,6 +75,68 @@ def info(name: str) -> None:
             indent=2,
         ),
     )
+
+
+@main.command()
+@click.argument("name")
+@click.option(
+    "--pin",
+    is_flag=True,
+    default=False,
+    help="After locating the cached file, print a registry.yml patch with its sha256.",
+)
+def fetch(name: str, pin: bool) -> None:
+    """Make a dataset available locally and verify its hash.
+
+    Auto-downloads when `download_url` is set; otherwise prints
+    instructions for the manual TOS-gated download path (4TU / Mendeley).
+    """
+    try:
+        d = get_dataset(name)
+    except KeyError:
+        click.echo(f"unknown dataset: {name}", err=True)
+        sys.exit(1)
+
+    if d.format == "synthetic":
+        click.echo(f"{name}: generated on demand, no fetch needed")
+        return
+
+    try:
+        result = ensure_cached(d)
+    except ManualFetchRequired as exc:
+        # Special-cased only so we can also handle --pin against a file the
+        # user just placed by hand. If the file is now there, recurse via
+        # ensure_cached; otherwise print the instructions and bail.
+        path = exc.expected_path
+        if path.exists():
+            actual = sha256_file(path)
+            click.echo(f"{name}: cached at {path}")
+            click.echo(f"  sha256: {actual}")
+            if pin:
+                _print_pin_patch(name, actual)
+            elif d.sha256 is None:
+                click.echo("  (registry hash unset — re-run with --pin to emit a patch)")
+            return
+        click.echo(str(exc), err=True)
+        sys.exit(2)
+    except FetchError as exc:
+        click.echo(f"{name}: {exc}", err=True)
+        sys.exit(2)
+
+    state = "downloaded" if result.downloaded else "cached"
+    pinned = "verified" if result.pinned else "unpinned"
+    click.echo(f"{name}: {state} at {result.path} ({pinned})")
+    click.echo(f"  sha256: {result.sha256}")
+    if pin and not result.pinned:
+        _print_pin_patch(name, result.sha256)
+
+
+def _print_pin_patch(name: str, digest: str) -> None:
+    """Print a YAML snippet the user can paste into registry.yml."""
+    click.echo("")
+    click.echo("# paste under the matching dataset entry in pm_bench/registry.yml:")
+    click.echo(f"  - name: {name}")
+    click.echo(f"    sha256: {digest}")
 
 
 @main.command()

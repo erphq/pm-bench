@@ -5,11 +5,13 @@ Be the default benchmark for new process-mining methods. Within 18 months,
 ≥10 external papers report `pm-bench` numbers in their abstract.
 
 ## v0 success criteria
-- 7 datasets fetchable + hash-verified
+- 7 datasets fetchable + hash-verified — fetch/hash machinery shipped
+  (`pm-bench fetch <name> [--pin]`); per-dataset hash pins pending
+  the one-time TOS-gated downloads
 - 5 tasks with fixed scoring scripts (next-event ✅; remaining-time, outcome,
   conformance, bottleneck pending)
 - `gnn` runs end-to-end as the reference baseline (Markov reference ✅;
-  `gnn` integration pending v0.1 dataset machinery)
+  `gnn` integration pending the first pinned dataset)
 - End-to-end loop runs on `synthetic-toy` ✅ — split → prefixes →
   predict → score, covered by `tests/test_e2e.py`
 
