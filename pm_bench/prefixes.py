@@ -173,7 +173,7 @@ def read_prefixes_csv(path: str) -> list[Prefix]:
             prefix = tuple(prefix_str.split(PREFIX_SEP)) if prefix_str else ()
             out.append(
                 Prefix(
-                    case_id=row["case_id"],
+                    case_id=row["case_id"].strip(),
                     prefix_idx=int(row["prefix_idx"]),
                     prefix=prefix,
                     true_next=row["true_next"],
@@ -282,7 +282,7 @@ def read_outcome_targets_csv(path: str) -> list[OutcomeTarget]:
         for row in r:
             out.append(
                 OutcomeTarget(
-                    case_id=row["case_id"],
+                    case_id=row["case_id"].strip(),
                     prefix_idx=int(row["prefix_idx"]),
                     outcome=int(row["outcome"]),
                 )
@@ -318,7 +318,7 @@ def read_time_targets_csv(path: str) -> list[TimeTarget]:
         for row in r:
             out.append(
                 TimeTarget(
-                    case_id=row["case_id"],
+                    case_id=row["case_id"].strip(),
                     prefix_idx=int(row["prefix_idx"]),
                     remaining_days=float(row["remaining_days"]),
                 )

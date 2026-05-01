@@ -60,6 +60,21 @@ pm-bench fetch bpi2020 --pin
 
 ## Recently shipped
 
+- **Round-7 cleanup** (`round7-baseline-tests` branch).
+  - **Robustness gap from round 6**: 4 baseline functions
+    (`fit_uniform`, `predict_zero_time`, `fit_global_rate` /
+    `predict_global_rate`, `predict_random_rank`) had no direct unit
+    tests — only indirect leaderboard-rescore coverage. 9 contract-
+    pinning tests added in `test_baselines_units.py`.
+  - **R28**: schema validator raw-TypeError'd when `split.kind` was
+    a non-hashable type (e.g. list). Now: type-check before
+    membership-check; emits "must be a string" error.
+  - **R29**: spreadsheet-padded `case_id` (or `activity_a`/
+    `activity_b` in bottleneck) in any of the 5 read paths
+    (predictions, prefixes, time, outcome, bottleneck) silently
+    failed to join against the truth file. Same `.strip()` fix as
+    `read_csv_log` got in round 6, applied uniformly.
+  - 11 new tests; 206 total, ruff clean.
 - **Round-6 cleanup** (`round6-fixes` branch). Fourth audit pass found
   4 more real bugs:
   - **R24**: `pm-bench split --task` accepted any string (no

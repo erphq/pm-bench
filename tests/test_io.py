@@ -144,6 +144,22 @@ def test_read_csv_log_handles_long_activity_names(tmp_path: Path) -> None:
     assert len(events[0][1]) == 200 * 1024
 
 
+def test_predictions_csv_strips_case_id_whitespace(tmp_path: Path) -> None:
+    """A spreadsheet-padded predictions CSV must join correctly against
+    the truth file, not silently miss every row."""
+    from pm_bench.predictions import read_predictions_csv
+
+    p = tmp_path / "preds.csv"
+    p.write_text(
+        "case_id,prefix_idx,predictions\n"
+        " c1,1,a|b\n"
+        "c2 ,2,c|d\n"
+    )
+    rows = read_predictions_csv(str(p))
+    assert rows[0].case_id == "c1"
+    assert rows[1].case_id == "c2"
+
+
 def test_split_task_flag_rejects_unknown_task() -> None:
     """`split --task bogus` must error rather than stamping the JSON."""
     runner = CliRunner()

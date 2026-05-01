@@ -111,6 +111,21 @@ def test_absolute_predictions_path_rejected() -> None:
     assert any("absolute" in e for e in errors)
 
 
+def test_split_kind_as_non_string_does_not_traceback() -> None:
+    """Earlier versions raw-TypeError'd on `split.kind` being a list
+    (unhashable for the `in VALID_SPLIT_KINDS` check). Now: clean error."""
+    bad = {
+        "task": "next-event",
+        "dataset": "x",
+        "metric": "m",
+        "scored_with": "z",
+        "split": {"kind": ["case-chrono"]},  # list, not string
+        "entries": [],
+    }
+    errors = validate_board(bad)
+    assert any("must be a string" in e for e in errors)
+
+
 def test_unknown_split_kind_rejected() -> None:
     bad = {
         "task": "next-event",

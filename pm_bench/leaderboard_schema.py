@@ -107,6 +107,13 @@ def validate_board(board: dict) -> list[str]:
             errors.append(_err_path("$.split", "must be an object"))
         elif "kind" not in split:
             errors.append(_err_path("$.split", "missing required key 'kind'"))
+        elif not isinstance(split["kind"], str):
+            errors.append(
+                _err_path(
+                    "$.split.kind",
+                    f"must be a string, got {type(split['kind']).__name__}",
+                )
+            )
         elif split["kind"] not in VALID_SPLIT_KINDS:
             errors.append(
                 _err_path(

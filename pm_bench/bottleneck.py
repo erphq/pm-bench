@@ -103,8 +103,8 @@ def read_bottleneck_targets_csv(path: str) -> list[BottleneckTarget]:
         for row in r:
             out.append(
                 BottleneckTarget(
-                    activity_a=row["activity_a"],
-                    activity_b=row["activity_b"],
+                    activity_a=row["activity_a"].strip(),
+                    activity_b=row["activity_b"].strip(),
                     mean_wait_seconds=float(row["mean_wait_seconds"]),
                     n_observations=int(row["n_observations"]),
                 )
@@ -142,8 +142,8 @@ def read_bottleneck_predictions_csv(path: str) -> list[BottleneckPrediction]:
         for row in r:
             out.append(
                 BottleneckPrediction(
-                    activity_a=row["activity_a"],
-                    activity_b=row["activity_b"],
+                    activity_a=row["activity_a"].strip(),
+                    activity_b=row["activity_b"].strip(),
                     predicted_wait_seconds=float(row["predicted_wait_seconds"]),
                 )
             )

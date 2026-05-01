@@ -87,7 +87,11 @@ def write_predictions_csv(predictions: Iterable[Prediction], path: str) -> int:
 
 
 def read_predictions_csv(path: str) -> list[Prediction]:
-    """Read a predictions CSV (plain or `.gz`)."""
+    """Read a predictions CSV (plain or `.gz`).
+
+    Strips whitespace from `case_id` so a spreadsheet-padded predictions
+    file doesn't silently fail to join against the truth file.
+    """
     out: list[Prediction] = []
     with _open_text(path) as f:
         r = csv.DictReader(f)
@@ -96,7 +100,7 @@ def read_predictions_csv(path: str) -> list[Prediction]:
             ranked = tuple(ranked_str.split(PREFIX_SEP)) if ranked_str else ()
             out.append(
                 Prediction(
-                    case_id=row["case_id"],
+                    case_id=row["case_id"].strip(),
                     prefix_idx=int(row["prefix_idx"]),
                     ranked=ranked,
                 )

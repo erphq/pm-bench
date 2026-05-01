@@ -128,7 +128,7 @@ def read_outcome_predictions_csv(path: str) -> list[OutcomePrediction]:
         for row in r:
             out.append(
                 OutcomePrediction(
-                    case_id=row["case_id"],
+                    case_id=row["case_id"].strip(),
                     prefix_idx=int(row["prefix_idx"]),
                     score=float(row["score"]),
                 )

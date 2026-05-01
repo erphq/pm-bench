@@ -85,7 +85,7 @@ def read_time_predictions_csv(path: str) -> list[TimePrediction]:
         for row in r:
             out.append(
                 TimePrediction(
-                    case_id=row["case_id"],
+                    case_id=row["case_id"].strip(),
                     prefix_idx=int(row["prefix_idx"]),
                     predicted_days=float(row["predicted_days"]),
                 )
