@@ -126,6 +126,28 @@ def _outcome_rule(name: str):
     )
 
 
+def _runtime_safe(fn):
+    """Wrap a CLI command body to catch the standard data-error
+    exceptions and exit 2 with a clean message.
+
+    Used for verbs that read user-supplied files (CSV, JSON) where
+    KeyError / ValueError / TypeError / FileNotFoundError can come
+    from any reader without wanting to propagate as raw tracebacks.
+    Verbs that need finer-grained handling skip this decorator.
+    """
+    import functools
+
+    @functools.wraps(fn)
+    def _wrapped(*args, **kwargs):
+        try:
+            return fn(*args, **kwargs)
+        except (KeyError, ValueError, TypeError, FileNotFoundError) as exc:
+            click.echo(str(exc), err=True)
+            sys.exit(2)
+
+    return _wrapped
+
+
 def _check_unique_pred_keys(rows: list, key_fn) -> None:
     """Raise if any two prediction rows share the same join key.
 
@@ -391,6 +413,7 @@ def split(name: str) -> None:
     default="next-event",
     show_default=True,
 )
+@_runtime_safe
 def prefixes(name: str, split_path: str, out_path: str, partition: str, task: str) -> None:
     """Emit prediction targets for a partition.
 
@@ -461,6 +484,7 @@ def prefixes(name: str, split_path: str, out_path: str, partition: str, task: st
     default="next-event",
     show_default=True,
 )
+@_runtime_safe
 def predict(
     name: str,
     split_path: str,
@@ -547,6 +571,7 @@ def predict(
     show_default=True,
     help="dfg → DFG from training cases; empty → no transitions (absolute floor).",
 )
+@_runtime_safe
 def discover(name: str, split_path: str, out_path: str, baseline: str) -> None:
     """Discover a process model from training cases.
 
@@ -1016,8 +1041,11 @@ def compare(board_a: str, board_b: str) -> None:
     except json.JSONDecodeError as exc:
         click.echo(f"not valid JSON: {exc}", err=True)
         sys.exit(2)
-    except KeyError as exc:
-        click.echo(f"not a leaderboard file (missing key {exc})", err=True)
+    except (KeyError, TypeError) as exc:
+        # KeyError: missing top-level key; TypeError: wrong shape (e.g.
+        # entries is a string, so `for e in raw["entries"]` iterates
+        # chars and `e["model"]` errors). Both indicate "not a board".
+        click.echo(f"not a leaderboard file ({exc})", err=True)
         sys.exit(2)
     except ValueError as exc:
         # Runtime mismatch (different (task, dataset) on the two files)

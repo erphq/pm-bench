@@ -47,12 +47,23 @@ def extract_dfg(
 
 
 def write_model_json(transitions: Iterable[tuple[Activity, Activity]], path: str | Path) -> int:
-    """Write a submission model JSON. Returns the number of transitions."""
+    """Write a submission model JSON (plain or `.gz`). Returns the number of transitions.
+
+    Auto-creates the parent directory if missing — same UX as the CSV
+    writers via `_open_text`. Handles `.gz` so a leaderboard entry with
+    `predictions_path: model.json.gz` round-trips correctly.
+    """
     pairs = sorted({tuple(t) for t in transitions})
-    Path(path).write_text(
-        json.dumps({"transitions": [list(p) for p in pairs]}, indent=2),
-        encoding="utf-8",
-    )
+    data = json.dumps({"transitions": [list(p) for p in pairs]}, indent=2)
+    p = Path(path)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    if str(p).endswith(".gz"):
+        import gzip
+
+        with gzip.open(p, "wt", encoding="utf-8") as f:
+            f.write(data)
+    else:
+        p.write_text(data, encoding="utf-8")
     return len(pairs)
 
 

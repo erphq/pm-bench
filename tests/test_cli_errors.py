@@ -186,7 +186,7 @@ def test_compare_on_non_board_json_exits_2(tmp_path: Path) -> None:
     runner = CliRunner()
     r = runner.invoke(main, ["compare", str(bad), str(real)])
     assert r.exit_code == 2
-    assert "missing key" in r.output
+    assert "not a leaderboard file" in r.output
 
 
 def test_compare_on_non_json_file_exits_2(tmp_path: Path) -> None:
@@ -243,6 +243,86 @@ def test_prefixes_to_nonexistent_dir_auto_creates(tmp_path: Path) -> None:
     )
     assert r.exit_code == 0, r.output
     assert out_path.exists()
+
+
+def test_predict_with_bad_prefixes_csv_exits_2(tmp_path: Path) -> None:
+    """`pm-bench predict` used to raw-traceback on a malformed prefixes
+    file; now wrapped by _runtime_safe and exits 2."""
+    runner = CliRunner()
+    split_path = _write_split(tmp_path)
+    bad_prefixes = tmp_path / "bad.csv"
+    bad_prefixes.write_text("foo,bar\n1,2\n")  # wrong columns
+    r = runner.invoke(
+        main,
+        [
+            "predict", "synthetic-toy",
+            "--split", str(split_path),
+            "--prefixes", str(bad_prefixes),
+            "--out", str(tmp_path / "out.csv"),
+            "--baseline", "markov",
+        ],
+    )
+    assert r.exit_code == 2
+    assert "missing required column" in r.output
+
+
+def test_discover_into_nonexistent_dir_creates_it(tmp_path: Path) -> None:
+    """write_model_json now auto-creates parent dirs (matching the CSV
+    writers via _atomic_csv_write)."""
+    runner = CliRunner()
+    split_path = _write_split(tmp_path)
+    out_path = tmp_path / "deep" / "nested" / "missing" / "model.json"
+    r = runner.invoke(
+        main,
+        [
+            "discover", "synthetic-toy",
+            "--split", str(split_path),
+            "--out", str(out_path),
+            "--baseline", "dfg",
+        ],
+    )
+    assert r.exit_code == 0, r.output
+    assert out_path.exists()
+
+
+def test_compare_on_typeerror_input_exits_2(tmp_path: Path) -> None:
+    """A JSON whose `entries` is a string (TypeError on iteration)
+    must exit 2 cleanly, not raw-traceback."""
+    bad = tmp_path / "bad.json"
+    bad.write_text(json.dumps({
+        "task": "next-event",
+        "dataset": "x",
+        "metric": "m",
+        "entries": "not a list",
+    }))
+    real = REPO_ROOT / "leaderboard" / "next-event" / "synthetic-toy.json"
+    runner = CliRunner()
+    r = runner.invoke(main, ["compare", str(bad), str(real)])
+    assert r.exit_code == 2
+    assert "not a leaderboard file" in r.output
+
+
+def test_discover_writes_gzipped_model_json(tmp_path: Path) -> None:
+    """write_model_json now handles .json.gz."""
+    import gzip as _gz
+    import json as _json
+
+    runner = CliRunner()
+    split_path = _write_split(tmp_path)
+    out_path = tmp_path / "model.json.gz"
+    r = runner.invoke(
+        main,
+        [
+            "discover", "synthetic-toy",
+            "--split", str(split_path),
+            "--out", str(out_path),
+            "--baseline", "dfg",
+        ],
+    )
+    assert r.exit_code == 0, r.output
+    with _gz.open(out_path, "rt") as f:
+        data = _json.load(f)
+    assert "transitions" in data
 
 
 def test_score_with_short_csv_row_exits_2(tmp_path: Path) -> None:

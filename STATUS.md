@@ -60,6 +60,21 @@ pm-bench fetch bpi2020 --pin
 
 ## Recently shipped
 
+- **Round-10 cleanup** (`round10-fixes` branch). Seventh audit pass:
+  - **R44**: `write_model_json` ignored `.gz` and skipped parent
+    mkdir. `discover --out new_dir/model.json` raw-FileNotFound'd;
+    `discover --out model.json.gz` wrote plain JSON at a `.gz` path
+    that `read_model_json` then crashed on. Fixed: now `.gz`-aware
+    and auto-mkdirs, mirroring the CSV writers.
+  - **R45**: `prefixes`, `predict`, `discover` had no outer
+    try/except — bad inputs (malformed CSV, mixed-type case_ids)
+    raw-tracebacked. New `_runtime_safe` decorator catches
+    `(KeyError, ValueError, TypeError, FileNotFoundError)` → exit 2
+    with a clean message. Wraps all three verbs.
+  - **R46**: `compare` only caught `(JSONDecodeError, KeyError,
+    ValueError)`. A JSON with `entries: "not a list"` raw-TypeError'd
+    on iteration. Now caught.
+  - 4 new tests; 223 total, ruff clean.
 - **Round-9 cleanup** (`round9-fixes` branch). Sixth audit pass found
   another batch of corruption + traceback paths:
   - **R37+R38**: `csv.DictReader` returns `None` for missing columns
