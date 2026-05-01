@@ -60,6 +60,14 @@ pm-bench fetch bpi2020 --pin
 
 ## Recently shipped
 
+- **STANDINGS.md auto-generation** (`standings-md` branch).
+  - `pm-bench leaderboard --all --markdown` emits a markdown doc
+    listing every board with a task-aware table.
+  - `STANDINGS.md` checked into the repo; a CI test asserts it
+    matches what `--all --markdown` produces today (regenerate with
+    `pm-bench leaderboard --all --markdown > STANDINGS.md`).
+  - README links to STANDINGS so the headline numbers are one click
+    away. v0.4 milestone closed.
 - **Bottleneck task (NDCG@10 over transitions)** (`bottleneck-task` branch).
   - `score_bottleneck` — pure-CPython NDCG@k with average DCG/IDCG
     discounting. Missing predictions sink to the bottom of the

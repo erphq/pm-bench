@@ -34,7 +34,13 @@ from pm_bench.fetch import (
     ensure_cached,
     sha256_file,
 )
-from pm_bench.leaderboard import load_board, standings, verify
+from pm_bench.leaderboard import (
+    all_standings_markdown,
+    board_to_markdown,
+    load_board,
+    standings,
+    verify,
+)
 from pm_bench.predictions import read_predictions_csv, write_predictions_csv
 from pm_bench.prefixes import (
     extract_outcome_targets,
@@ -490,6 +496,13 @@ def score(predictions_path: str, prefixes_path: str, task: str) -> None:
     help="Walk every leaderboard/<task>/<dataset>.json and verify each.",
 )
 @click.option(
+    "--markdown",
+    "do_markdown",
+    is_flag=True,
+    default=False,
+    help="Emit a markdown rendering. With --all, prints the full STANDINGS doc.",
+)
+@click.option(
     "--repo-root",
     type=click.Path(exists=True, file_okay=False),
     default=".",
@@ -501,6 +514,7 @@ def leaderboard(
     dataset: str | None,
     do_verify: bool,
     do_all: bool,
+    do_markdown: bool,
     repo_root: str,
 ) -> None:
     """Print standings for a (task, dataset) pair, optionally rescoring.
@@ -509,6 +523,9 @@ def leaderboard(
     the lever CI pulls to verify the full repo in one go.
     """
     if do_all:
+        if do_markdown:
+            click.echo(all_standings_markdown(repo_root=repo_root), nl=False)
+            return
         from pathlib import Path
 
         root = Path(repo_root) / "leaderboard"
@@ -551,6 +568,10 @@ def leaderboard(
                 click.echo(d, err=True)
             sys.exit(2)
         click.echo(f"verified {len(board.entries)} entr(ies) — no drift")
+
+    if do_markdown:
+        click.echo(board_to_markdown(board))
+        return
 
     width = max((len(e.model) for e in board.entries), default=10)
     click.echo(f"{board.task} · {board.dataset} · {board.metric}")

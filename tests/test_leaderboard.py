@@ -13,7 +13,14 @@ from pathlib import Path
 from click.testing import CliRunner
 
 from pm_bench.cli import main
-from pm_bench.leaderboard import load_board, rescore, standings, verify
+from pm_bench.leaderboard import (
+    all_standings_markdown,
+    board_to_markdown,
+    load_board,
+    rescore,
+    standings,
+    verify,
+)
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 BOARD_PATH = REPO_ROOT / "leaderboard" / "next-event" / "synthetic-toy.json"
@@ -128,6 +135,34 @@ def test_cli_leaderboard_missing_returns_nonzero(tmp_path) -> None:
     )
     assert r.exit_code == 1
     assert "no leaderboard at" in r.output
+
+
+def test_board_to_markdown_includes_model_and_score() -> None:
+    board = load_board(BOARD_PATH)
+    md = board_to_markdown(board)
+    assert "markov-ref" in md
+    assert "0.9756" in md
+    assert "next-event" in md
+
+
+def test_all_standings_markdown_lists_every_board() -> None:
+    md = all_standings_markdown(repo_root=REPO_ROOT)
+    assert "next-event · synthetic-toy" in md
+    assert "remaining-time · synthetic-toy" in md
+    assert "bottleneck · synthetic-toy" in md
+
+
+def test_checked_in_standings_md_is_up_to_date() -> None:
+    """STANDINGS.md must match what `--all --markdown` produces today.
+
+    If it doesn't, regenerate it: `pm-bench leaderboard --all --markdown > STANDINGS.md`.
+    """
+    fresh = all_standings_markdown(repo_root=REPO_ROOT)
+    on_disk = (REPO_ROOT / "STANDINGS.md").read_text()
+    assert on_disk == fresh, (
+        "STANDINGS.md is stale; regenerate with "
+        "`pm-bench leaderboard --all --markdown > STANDINGS.md`"
+    )
 
 
 def test_predictions_file_is_readable_gz() -> None:

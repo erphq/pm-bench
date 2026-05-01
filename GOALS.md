@@ -23,8 +23,10 @@ Be the default benchmark for new process-mining methods. Within 18 months,
 - CI workflow shipped: `.github/workflows/leaderboard.yml` runs
   `pm-bench leaderboard --all --verify` on every PR / push that
   touches scoring code or standings files
-- Remaining: static landing page (HTML / index page on a tag) and the
-  URL-fetch submission flow for entries whose predictions live offsite
+- STANDINGS.md auto-generated and checked in; staleness is a CI
+  failure
+- Remaining: URL-fetch submission flow (predictions hosted offsite)
+  is a v1.x ergonomics nice-to-have, not a v0 blocker
 
 ## v1 success criteria
 - ≥3 external groups submit to the leaderboard

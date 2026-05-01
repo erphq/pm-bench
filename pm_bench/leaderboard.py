@@ -242,6 +242,72 @@ def verify(board: Board, repo_root: str | Path = ".", *, tol: float = 1e-9) -> l
     return drifts
 
 
+def board_to_markdown(board: Board) -> str:
+    """Render a single board as a fenced markdown table.
+
+    Columns are task-aware (top1/top3 for next-event, mae_days for
+    remaining-time, auc/n_pos for outcome, ndcg@k for bottleneck).
+    """
+    rows = standings(board)
+    lines = [
+        f"### {board.task} · {board.dataset}",
+        f"_{board.metric}_",
+        "",
+    ]
+    if board.task == "remaining-time":
+        lines.append("| Model | mae_days | n |")
+        lines.append("|---|---:|---:|")
+        for e in rows:
+            mae = e.score.get("mae_days", float("nan"))
+            lines.append(f"| `{e.model}` | {mae:.4f} | {e.score.get('n')} |")
+    elif board.task == "outcome":
+        lines.append("| Model | AUC | n | n_pos |")
+        lines.append("|---|---:|---:|---:|")
+        for e in rows:
+            auc = e.score.get("auc", float("nan"))
+            lines.append(
+                f"| `{e.model}` | {auc:.4f} | {e.score.get('n')} | {e.score.get('n_pos')} |"
+            )
+    elif board.task == "bottleneck":
+        lines.append("| Model | NDCG@k | k | n_transitions |")
+        lines.append("|---|---:|---:|---:|")
+        for e in rows:
+            ndcg = e.score.get("ndcg_at_k", float("nan"))
+            lines.append(
+                f"| `{e.model}` | {ndcg:.4f} | {e.score.get('k')} | "
+                f"{e.score.get('n_transitions')} |"
+            )
+    else:
+        # next-event
+        lines.append("| Model | top1 | top3 | n |")
+        lines.append("|---|---:|---:|---:|")
+        for e in rows:
+            top1 = e.score.get("top1", float("nan"))
+            top3 = e.score.get("top3", float("nan"))
+            lines.append(
+                f"| `{e.model}` | {top1:.4f} | {top3:.4f} | {e.score.get('n')} |"
+            )
+    return "\n".join(lines)
+
+
+def all_standings_markdown(repo_root: str | Path = ".") -> str:
+    """Render every leaderboard/<task>/<dataset>.json as one markdown doc."""
+    root = Path(repo_root) / "leaderboard"
+    files = sorted(root.glob("*/*.json"))
+    chunks = [
+        "# Standings",
+        "",
+        "_Auto-generated from `leaderboard/<task>/<dataset>.json` —"
+        " regenerate with `pm-bench leaderboard --all --markdown > STANDINGS.md`._",
+        "",
+    ]
+    for f in files:
+        board = load_board(f)
+        chunks.append(board_to_markdown(board))
+        chunks.append("")
+    return "\n".join(chunks).rstrip() + "\n"
+
+
 def standings(board: Board, *, key: str | None = None) -> list[Entry]:
     """Return entries sorted by the appropriate score key.
 

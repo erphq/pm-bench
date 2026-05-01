@@ -146,6 +146,12 @@ flowchart LR
   SC --> LB[leaderboard<br/>JSON in repo]
 ```
 
+## ✦ Current standings
+
+Live numbers per (task, dataset) — auto-generated and verified in CI:
+[STANDINGS.md](./STANDINGS.md). Regenerate locally with
+`pm-bench leaderboard --all --markdown > STANDINGS.md`.
+
 ## ✦ Submitting to the leaderboard
 
 Open a PR adding a row to `leaderboard/<task>/<dataset>.json`:
@@ -226,10 +232,11 @@ honesty. The point of the benchmark is to make the comparison real.
       pipeline; leaderboard entry waits on a dataset whose test split
       has both classes), bottleneck ✅ (NDCG@10 + mean-wait baseline +
       leaderboard entry); conformance remains.
-- [🟡] v0.4 — leaderboard CI + landing page. Standings format,
-      reference Markov entry, `pm-bench leaderboard [--all] --verify`,
-      and the dedicated `leaderboard.yml` GitHub workflow shipped;
-      static landing page is the remaining piece.
+- [x] v0.4 — leaderboard CI + landing page. Standings JSON,
+      reference entries, `pm-bench leaderboard [--all] [--verify]
+      [--markdown]`, the dedicated `leaderboard.yml` GitHub workflow,
+      and an auto-generated [STANDINGS.md](./STANDINGS.md) all
+      shipped; CI fails if the checked-in STANDINGS.md drifts.
 - [ ] v0.5 — baselines: `gnn`, transformer, LSTM, Markov ✅ (Markov shipped)
 - [ ] v1.0 — first external submissions; cited in ≥1 paper
 
