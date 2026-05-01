@@ -1,0 +1,29 @@
+{
+  "task": "conformance",
+  "dataset": "synthetic-toy",
+  "metric": "DFG fitness × precision → F-score (higher is better)",
+  "scored_with": "pm_bench.score.score_conformance",
+  "split": {
+    "kind": "case-chrono",
+    "train_frac": 0.7,
+    "val_frac": 0.1
+  },
+  "entries": [
+    {
+      "model": "dfg-ref",
+      "version": "0.1.0",
+      "predictions_path": "leaderboard/predictions/conformance/synthetic-toy/dfg-ref.json",
+      "code": "https://github.com/erphq/pm-bench/blob/main/pm_bench/conformance.py",
+      "paper": null,
+      "score": {
+        "fitness": 1.0,
+        "precision": 0.75,
+        "fscore": 0.8571428571428571,
+        "n_test_transitions": 6,
+        "n_model_transitions": 8
+      },
+      "scored_at": "2026-04-30T00:00:00Z",
+      "notes": "Directly-follows graph extracted from training cases. Perfect fitness on synthetic-toy (every test transition was seen at training time); precision drops because the model carries two transitions the test never uses."
+    }
+  ]
+}

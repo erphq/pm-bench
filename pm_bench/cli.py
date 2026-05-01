@@ -28,6 +28,7 @@ from pm_bench.bottleneck import (
     write_bottleneck_predictions_csv,
     write_bottleneck_targets_csv,
 )
+from pm_bench.conformance import extract_dfg, read_model_json, write_model_json
 from pm_bench.fetch import (
     FetchError,
     ManualFetchRequired,
@@ -56,6 +57,7 @@ from pm_bench.prefixes import (
 from pm_bench.registry import get_dataset, load_registry
 from pm_bench.score import (
     score_bottleneck,
+    score_conformance,
     score_next_event,
     score_outcome,
     score_remaining_time,
@@ -257,7 +259,9 @@ def split(name: str, task: str) -> None:
 )
 @click.option(
     "--task",
-    type=click.Choice(["next-event", "remaining-time", "outcome", "bottleneck"]),
+    type=click.Choice(
+        ["next-event", "remaining-time", "outcome", "bottleneck", "conformance"]
+    ),
     default="next-event",
     show_default=True,
 )
@@ -324,7 +328,9 @@ def prefixes(name: str, split_path: str, out_path: str, partition: str, task: st
 )
 @click.option(
     "--task",
-    type=click.Choice(["next-event", "remaining-time", "outcome", "bottleneck"]),
+    type=click.Choice(
+        ["next-event", "remaining-time", "outcome", "bottleneck", "conformance"]
+    ),
     default="next-event",
     show_default=True,
 )
@@ -380,22 +386,121 @@ def predict(
 
 
 @main.command()
+@click.argument("name")
+@click.option(
+    "--split",
+    "split_path",
+    type=click.Path(exists=True, dir_okay=False),
+    required=True,
+)
+@click.option(
+    "--out",
+    "out_path",
+    type=click.Path(dir_okay=False),
+    required=True,
+    help="Where to write the discovered-model JSON.",
+)
+@click.option(
+    "--baseline",
+    type=click.Choice(["dfg"]),
+    default="dfg",
+    show_default=True,
+    help="dfg → directly-follows graph from training cases.",
+)
+def discover(name: str, split_path: str, out_path: str, baseline: str) -> None:
+    """Discover a process model from training cases.
+
+    The submission for the conformance task is a model JSON. Today only
+    the DFG baseline ships in-tree — other discoverers (alpha, inductive)
+    can be added behind a `[discovery]` extra without changing the
+    submission format.
+    """
+    events = _load_events(name)
+    with open(split_path) as f:
+        split_data = json.load(f)
+    if baseline != "dfg":
+        raise click.UsageError(f"unknown discoverer: {baseline}")
+    dfg = extract_dfg(events, split_data["train"])
+    n = write_model_json(dfg, out_path)
+    click.echo(f"wrote model with {n} transitions to {out_path} (baseline={baseline})")
+
+
+@main.command()
 @click.argument("predictions_path", type=click.Path(exists=True, dir_okay=False))
 @click.option(
     "--prefixes",
     "prefixes_path",
     type=click.Path(exists=True, dir_okay=False),
-    required=True,
-    help="Truth file from `pm-bench prefixes`.",
+    required=False,
+    help="Truth file from `pm-bench prefixes` (required for non-conformance tasks).",
+)
+@click.option(
+    "--dataset",
+    "dataset_name",
+    required=False,
+    help="Dataset name (required for --task conformance — used to extract test DFG).",
+)
+@click.option(
+    "--split",
+    "split_path",
+    type=click.Path(exists=True, dir_okay=False),
+    required=False,
+    help="Split JSON (required for --task conformance — used to identify test cases).",
 )
 @click.option(
     "--task",
-    type=click.Choice(["next-event", "remaining-time", "outcome", "bottleneck"]),
+    type=click.Choice(
+        ["next-event", "remaining-time", "outcome", "bottleneck", "conformance"]
+    ),
     default="next-event",
     show_default=True,
 )
-def score(predictions_path: str, prefixes_path: str, task: str) -> None:
-    """Score predictions against the truth file."""
+def score(
+    predictions_path: str,
+    prefixes_path: str | None,
+    dataset_name: str | None,
+    split_path: str | None,
+    task: str,
+) -> None:
+    """Score predictions against the truth file (or, for conformance, against
+    the test-partition DFG of a named dataset)."""
+    if task == "conformance":
+        if not dataset_name or not split_path:
+            click.echo(
+                "conformance scoring needs --dataset and --split (the model is "
+                "judged against the test partition's directly-follows graph)",
+                err=True,
+            )
+            sys.exit(1)
+        events = _load_events(dataset_name)
+        with open(split_path) as f:
+            split_data = json.load(f)
+        truth_dfg = extract_dfg(events, split_data["test"])
+        try:
+            model_dfg = read_model_json(predictions_path)
+        except ValueError as exc:
+            click.echo(str(exc), err=True)
+            sys.exit(2)
+        cs = score_conformance(model_dfg, truth_dfg)
+        click.echo(
+            json.dumps(
+                {
+                    "task": task,
+                    "fitness": cs.fitness,
+                    "precision": cs.precision,
+                    "fscore": cs.fscore,
+                    "n_test_transitions": cs.n_test_transitions,
+                    "n_model_transitions": cs.n_model_transitions,
+                },
+                indent=2,
+            ),
+        )
+        return
+
+    if not prefixes_path:
+        click.echo(f"--prefixes is required for --task {task}", err=True)
+        sys.exit(1)
+
     if task == "next-event":
         truth_rows = read_prefixes_csv(prefixes_path)
         pred_rows = read_predictions_csv(predictions_path)
@@ -607,6 +712,13 @@ def leaderboard(
             k = e.score.get("k")
             n_t = e.score.get("n_transitions")
             click.echo(f"{e.model:<{width}}  ndcg@{k}={ndcg:.4f}  n_transitions={n_t}")
+        elif board.task == "conformance":
+            f_ = e.score.get("fscore")
+            fit = e.score.get("fitness")
+            pr = e.score.get("precision")
+            click.echo(
+                f"{e.model:<{width}}  F={f_:.4f}  fitness={fit:.4f}  precision={pr:.4f}"
+            )
         else:
             top1 = e.score.get("top1")
             top3 = e.score.get("top3")

@@ -1,8 +1,8 @@
 """Scoring scripts for pm-bench tasks.
 
 v0: next-event prediction (top-1 / top-3 accuracy), remaining-time
-prediction (MAE in days), outcome prediction (AUC), and bottleneck
-detection (NDCG@10 over transitions ranked by wait time).
+prediction (MAE in days), outcome prediction (AUC), bottleneck
+detection (NDCG@10), and conformance checking (DFG fitness × precision).
 """
 from __future__ import annotations
 
@@ -111,6 +111,58 @@ def score_outcome(
     sum_pos_ranks = sum(ranks[i] for i in range(n) if truth[i] == 1)
     auc = (sum_pos_ranks - n_pos * (n_pos + 1) / 2) / (n_pos * n_neg)
     return OutcomeScore(auc=auc, n=n, n_pos=n_pos)
+
+
+@dataclass(frozen=True)
+class ConformanceScore:
+    """DFG-based conformance: fitness × precision → F-score.
+
+    `fitness` is the fraction of test-case directly-follows transitions
+    that exist in the submitted model. `precision` is the fraction of
+    model transitions that the test cases actually use. `fscore` is the
+    harmonic mean — 2fp / (f+p).
+
+    This is a simpler conformance check than alignment-based replay
+    (which needs a Petri net + token semantics), but it's enough to
+    catch the obvious failure modes: a model with too few transitions
+    fails fitness; a model with too many fails precision.
+    """
+
+    fitness: float
+    precision: float
+    fscore: float
+    n_test_transitions: int  # observed in test
+    n_model_transitions: int  # in the submitted model
+
+
+def score_conformance(
+    model_transitions: set[tuple[str, str]],
+    test_transitions: set[tuple[str, str]],
+) -> ConformanceScore:
+    """DFG fitness × precision → F-score.
+
+    `model_transitions` is the submitted model's directly-follows
+    relation (a set of (a, b) pairs). `test_transitions` is the same
+    relation observed on the held-out cases. Both are unweighted —
+    we measure structural agreement, not frequency.
+    """
+    n_test = len(test_transitions)
+    n_model = len(model_transitions)
+    if n_test == 0 and n_model == 0:
+        return ConformanceScore(0.0, 0.0, 0.0, 0, 0)
+
+    overlap = test_transitions & model_transitions
+    fitness = len(overlap) / n_test if n_test else 0.0
+    precision = len(overlap) / n_model if n_model else 0.0
+    fscore = (2 * fitness * precision) / (fitness + precision) if (fitness + precision) > 0 else 0.0
+
+    return ConformanceScore(
+        fitness=fitness,
+        precision=precision,
+        fscore=fscore,
+        n_test_transitions=n_test,
+        n_model_transitions=n_model,
+    )
 
 
 @dataclass(frozen=True)

@@ -22,6 +22,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from pm_bench.bottleneck import BottleneckTarget, extract_bottleneck_targets
+from pm_bench.conformance import extract_dfg, read_model_json
 from pm_bench.predictions import Prediction
 from pm_bench.prefixes import (
     PREFIX_SEP,
@@ -30,7 +31,12 @@ from pm_bench.prefixes import (
     extract_prefixes,
     extract_remaining_time_targets,
 )
-from pm_bench.score import score_bottleneck, score_next_event, score_remaining_time
+from pm_bench.score import (
+    score_bottleneck,
+    score_conformance,
+    score_next_event,
+    score_remaining_time,
+)
 
 
 @dataclass(frozen=True)
@@ -214,6 +220,30 @@ def _rescore_bottleneck(board: Board, repo_root: Path) -> list[tuple[Entry, dict
     return out
 
 
+def _rescore_conformance(board: Board, repo_root: Path) -> list[tuple[Entry, dict]]:
+    events, test_cases = _events_and_test_cases(board.dataset)
+    truth_dfg = extract_dfg(events, test_cases)
+
+    out: list[tuple[Entry, dict]] = []
+    for entry in board.entries:
+        model_path = repo_root / entry.predictions_path
+        model_dfg = read_model_json(model_path)
+        s = score_conformance(model_dfg, truth_dfg)
+        out.append(
+            (
+                entry,
+                {
+                    "fitness": s.fitness,
+                    "precision": s.precision,
+                    "fscore": s.fscore,
+                    "n_test_transitions": s.n_test_transitions,
+                    "n_model_transitions": s.n_model_transitions,
+                },
+            )
+        )
+    return out
+
+
 def rescore(board: Board, repo_root: str | Path = ".") -> list[tuple[Entry, dict]]:
     """Re-run scoring for every entry; return (entry, fresh_score) pairs."""
     root = Path(repo_root)
@@ -223,6 +253,8 @@ def rescore(board: Board, repo_root: str | Path = ".") -> list[tuple[Entry, dict
         return _rescore_remaining_time(board, root)
     if board.task == "bottleneck":
         return _rescore_bottleneck(board, root)
+    if board.task == "conformance":
+        return _rescore_conformance(board, root)
     raise ValueError(f"unknown task: {board.task}")
 
 
@@ -277,6 +309,18 @@ def board_to_markdown(board: Board) -> str:
                 f"| `{e.model}` | {ndcg:.4f} | {e.score.get('k')} | "
                 f"{e.score.get('n_transitions')} |"
             )
+    elif board.task == "conformance":
+        lines.append("| Model | F | Fitness | Precision | n_test | n_model |")
+        lines.append("|---|---:|---:|---:|---:|---:|")
+        for e in rows:
+            f_ = e.score.get("fscore", float("nan"))
+            fit = e.score.get("fitness", float("nan"))
+            pr = e.score.get("precision", float("nan"))
+            lines.append(
+                f"| `{e.model}` | {f_:.4f} | {fit:.4f} | {pr:.4f} | "
+                f"{e.score.get('n_test_transitions')} | "
+                f"{e.score.get('n_model_transitions')} |"
+            )
     else:
         # next-event
         lines.append("| Model | top1 | top3 | n |")
@@ -325,6 +369,8 @@ def standings(board: Board, *, key: str | None = None) -> list[Entry]:
             key = "auc"
         elif board.task == "bottleneck":
             key = "ndcg_at_k"
+        elif board.task == "conformance":
+            key = "fscore"
         else:
             key = "top1"
     return sorted(board.entries, key=lambda e: e.score.get(key, float("-inf")), reverse=True)

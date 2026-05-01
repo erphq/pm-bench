@@ -241,11 +241,11 @@ honesty. The point of the benchmark is to make the comparison real.
       `$PM_BENCH_CACHE` resolution); per-dataset hash-pinning PRs
       pending the one-time TOS-gated downloads from 4TU and Mendeley.
 - [x] v0.2 — splits + targets for next-event ✅ and remaining-time ✅
-- [🟡] v0.3 — scoring scripts for all 5 tasks. next-event ✅,
-      remaining-time ✅, outcome ✅ (AUC scoring + prior baseline +
-      pipeline; leaderboard entry waits on a dataset whose test split
-      has both classes), bottleneck ✅ (NDCG@10 + mean-wait baseline +
-      leaderboard entry); conformance remains.
+- [x] v0.3 — scoring scripts for all 5 tasks ✅. next-event,
+      remaining-time, outcome, bottleneck, conformance — every task
+      ships with a CPython baseline and a leaderboard entry on
+      synthetic-toy (the outcome row waits on a dataset whose test
+      split has both classes).
 - [x] v0.4 — leaderboard CI + landing page. Standings JSON,
       reference entries, `pm-bench leaderboard [--all] [--verify]
       [--markdown]`, the dedicated `leaderboard.yml` GitHub workflow,

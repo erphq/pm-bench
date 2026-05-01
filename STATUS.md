@@ -60,6 +60,22 @@ pm-bench fetch bpi2020 --pin
 
 ## Recently shipped
 
+- **Conformance task — v0.3 closed** (`conformance-task` branch).
+  - `score_conformance` — DFG fitness × precision → F-score. Pure
+    CPython; no pm4py dep.
+  - `pm_bench/conformance.py` — DFG extraction, model JSON r/w. The
+    submission format is a JSON file with a `transitions` list.
+  - `pm-bench discover <name> --baseline dfg --out model.json` —
+    discovers the DFG from training cases. CLI `score --task
+    conformance --dataset NAME --split split.json model.json` runs
+    the comparison (the only score path that doesn't take
+    `--prefixes`, since the model is a global structure).
+  - `leaderboard/conformance/synthetic-toy.json` with the dfg-ref
+    entry (F=0.857, fitness 1.0, precision 0.75); 4 boards now
+    verify under `--all`.
+  - `pm-bench leaderboard --markdown` learns a conformance table
+    column set; STANDINGS.md regenerated.
+  - 11 new tests (`test_conformance.py`); 108 total, ruff clean.
 - **CSV ingest** (`csv-ingest` branch).
   - `pm_bench/io.py:read_csv_log` — CSV / `.csv.gz` event-log loader
     that accepts both pm-bench-native column names (`case_id`,
