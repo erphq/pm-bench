@@ -26,8 +26,10 @@ from pm_bench.conformance import extract_dfg, read_model_json
 from pm_bench.predictions import Prediction
 from pm_bench.prefixes import (
     PREFIX_SEP,
+    OutcomeTarget,
     Prefix,
     TimeTarget,
+    extract_outcome_targets,
     extract_prefixes,
     extract_remaining_time_targets,
 )
@@ -35,6 +37,7 @@ from pm_bench.score import (
     score_bottleneck,
     score_conformance,
     score_next_event,
+    score_outcome,
     score_remaining_time,
 )
 
@@ -137,6 +140,23 @@ def _bottleneck_truth_for_dataset(name: str) -> list[BottleneckTarget]:
     """Canonical bottleneck truth set for a known dataset."""
     events, test_cases = _events_and_test_cases(name)
     return list(extract_bottleneck_targets(events, test_cases))
+
+
+def _outcome_truth_for_dataset(name: str) -> list[OutcomeTarget]:
+    """Canonical outcome truth set for a known dataset.
+
+    The per-dataset positive-outcome rule lives in `pm_bench._synth` for
+    `synthetic-toy`; other datasets register their own rule when pinned.
+    """
+    if name == "synthetic-toy":
+        from pm_bench._synth import is_positive_outcome
+
+        events, test_cases = _events_and_test_cases(name)
+        return list(extract_outcome_targets(events, test_cases, is_positive_outcome))
+    raise ValueError(
+        f"outcome truth for dataset {name!r} not yet wired; register an outcome "
+        "rule alongside the dataset"
+    )
 
 
 def _rescore_next_event(board: Board, repo_root: Path) -> list[tuple[Entry, dict]]:
@@ -244,6 +264,35 @@ def _rescore_conformance(board: Board, repo_root: Path) -> list[tuple[Entry, dic
     return out
 
 
+def _rescore_outcome(board: Board, repo_root: Path) -> list[tuple[Entry, dict]]:
+    import csv
+    import gzip
+
+    truth = _outcome_truth_for_dataset(board.dataset)
+    truth_keys = [(t.case_id, t.prefix_idx) for t in truth]
+    truth_int = [t.outcome for t in truth]
+
+    out: list[tuple[Entry, dict]] = []
+    for entry in board.entries:
+        pred_path = repo_root / entry.predictions_path
+        opener = gzip.open if str(pred_path).endswith(".gz") else open
+        pred_lookup: dict[tuple[str, int], float] = {}
+        with opener(pred_path, "rt", newline="") as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                pred_lookup[(row["case_id"], int(row["prefix_idx"]))] = float(row["score"])
+        missing = [k for k in truth_keys if k not in pred_lookup]
+        if missing:
+            raise ValueError(
+                f"{entry.model}: predictions missing {len(missing)} target(s); "
+                f"first missing {missing[0]}"
+            )
+        preds = [pred_lookup[k] for k in truth_keys]
+        s = score_outcome(preds, truth_int)
+        out.append((entry, {"auc": s.auc, "n": s.n, "n_pos": s.n_pos}))
+    return out
+
+
 def rescore(board: Board, repo_root: str | Path = ".") -> list[tuple[Entry, dict]]:
     """Re-run scoring for every entry; return (entry, fresh_score) pairs."""
     root = Path(repo_root)
@@ -255,6 +304,8 @@ def rescore(board: Board, repo_root: str | Path = ".") -> list[tuple[Entry, dict
         return _rescore_bottleneck(board, root)
     if board.task == "conformance":
         return _rescore_conformance(board, root)
+    if board.task == "outcome":
+        return _rescore_outcome(board, root)
     raise ValueError(f"unknown task: {board.task}")
 
 

@@ -77,8 +77,8 @@ datasets:
 
   - name: synthetic-toy
     title: "Synthetic toy event log (deterministic, generated)"
-    cases: 50
-    events: 250
+    cases: 200
+    events: 965
     landing_url: null
     download_url: null
     sha256: null

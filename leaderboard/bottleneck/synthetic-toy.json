@@ -16,9 +16,9 @@
       "code": "https://github.com/erphq/pm-bench/blob/main/pm_bench/baselines/mean_wait.py",
       "paper": null,
       "score": {
-        "ndcg_at_k": 0.9786469611053435,
+        "ndcg_at_k": 0.9911470371722683,
         "k": 10,
-        "n_transitions": 6
+        "n_transitions": 9
       },
       "scored_at": "2026-04-30T00:00:00Z",
       "notes": "Per-transition mean wait time fitted on training cases, with global-mean fallback for unseen transitions. The dumbest model that uses any time information; a real model has to do strictly better."

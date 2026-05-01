@@ -243,9 +243,9 @@ honesty. The point of the benchmark is to make the comparison real.
 - [x] v0.2 - splits + targets for next-event ✅ and remaining-time ✅
 - [x] v0.3 - scoring scripts for all 5 tasks ✅. next-event,
       remaining-time, outcome, bottleneck, conformance - every task
-      ships with a CPython baseline and a leaderboard entry on
-      synthetic-toy (the outcome row waits on a dataset whose test
-      split has both classes).
+      ships with a CPython baseline and a real leaderboard entry on
+      synthetic-toy. All five entries are verified by
+      `pm-bench leaderboard --all --verify` in CI.
 - [x] v0.4 - leaderboard CI + landing page. Standings JSON,
       reference entries, `pm-bench leaderboard [--all] [--verify]
       [--markdown]`, the dedicated `leaderboard.yml` GitHub workflow,

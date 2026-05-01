@@ -1,0 +1,28 @@
+{
+  "task": "outcome",
+  "dataset": "synthetic-toy",
+  "metric": "ROC AUC (higher is better)",
+  "scored_with": "pm_bench.score.score_outcome",
+  "split": {
+    "kind": "case-chrono",
+    "train_frac": 0.7,
+    "val_frac": 0.1
+  },
+  "outcome_rule": "case ends with `delivery_confirmed` (synthetic-toy happy path)",
+  "entries": [
+    {
+      "model": "prior-ref",
+      "version": "0.1.0",
+      "predictions_path": "leaderboard/predictions/outcome/synthetic-toy/prior-ref.csv.gz",
+      "code": "https://github.com/erphq/pm-bench/blob/main/pm_bench/baselines/prior_outcome.py",
+      "paper": null,
+      "score": {
+        "auc": 0.631858407079646,
+        "n": 158,
+        "n_pos": 45
+      },
+      "scored_at": "2026-04-30T00:00:00Z",
+      "notes": "Last-activity-conditioned positive rate (with global-rate fallback for unseen activities). The dumbest baseline that uses any prefix signal; a real model has to clear AUC 0.63 to claim it's reading the trace."
+    }
+  ]
+}

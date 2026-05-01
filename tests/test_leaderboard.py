@@ -81,6 +81,14 @@ def test_cli_leaderboard_verify_passes() -> None:
     assert "no drift" in r.output
 
 
+def test_outcome_board_loads_and_verifies() -> None:
+    p = REPO_ROOT / "leaderboard" / "outcome" / "synthetic-toy.json"
+    board = load_board(p)
+    assert board.task == "outcome"
+    drifts = verify(board, repo_root=REPO_ROOT)
+    assert drifts == [], drifts
+
+
 def test_remaining_time_board_loads_and_verifies() -> None:
     board = load_board(TIME_BOARD_PATH)
     assert board.task == "remaining-time"
@@ -141,7 +149,7 @@ def test_board_to_markdown_includes_model_and_score() -> None:
     board = load_board(BOARD_PATH)
     md = board_to_markdown(board)
     assert "markov-ref" in md
-    assert "0.9756" in md
+    assert "0.9304" in md
     assert "next-event" in md
 
 
@@ -150,6 +158,8 @@ def test_all_standings_markdown_lists_every_board() -> None:
     assert "next-event · synthetic-toy" in md
     assert "remaining-time · synthetic-toy" in md
     assert "bottleneck · synthetic-toy" in md
+    assert "outcome · synthetic-toy" in md
+    assert "conformance · synthetic-toy" in md
 
 
 def test_checked_in_standings_md_is_up_to_date() -> None:

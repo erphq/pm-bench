@@ -60,6 +60,22 @@ pm-bench fetch bpi2020 --pin
 
 ## Recently shipped
 
+- **Synthetic-toy bumped to 200 cases — outcome row finally lands**
+  (`synthetic-200` branch).
+  - `synthetic_log()` default `n_cases` = 200 (was 50). Test partition
+    now has ~45 positive cases (`delivery_confirmed`) so AUC is
+    meaningful instead of degenerating to 0.5.
+  - All 4 existing reference predictions regenerated and re-scored.
+    New numbers: markov-ref top-1 0.9304 (was 0.9756 on 50 cases),
+    mean-ref MAE 1.3481, mean-wait-ref NDCG@10 0.9911,
+    dfg-ref F=1.0 (both partitions now cover the full path graph).
+  - **5th leaderboard board added**: `outcome/synthetic-toy.json`
+    with `prior-ref` entry — AUC 0.6319, n_pos 45 / 158. Real floor
+    for any temporal model on the outcome task.
+  - `_rescore_outcome` + `_outcome_truth_for_dataset` added to
+    `leaderboard.py`. `pm-bench leaderboard --all --verify` now
+    walks all 5 boards.
+  - STANDINGS.md regenerated. 109 tests, ruff clean.
 - **Conformance task - v0.3 closed** (`conformance-task` branch).
   - `score_conformance` - DFG fitness × precision → F-score. Pure
     CPython; no pm4py dep.

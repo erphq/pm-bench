@@ -36,7 +36,7 @@ PATHS: list[list[str]] = [
 WEIGHTS: list[float] = [0.50, 0.15, 0.15, 0.10, 0.10]
 
 
-def synthetic_log(n_cases: int = 50, seed: int = 42) -> Iterator[Event]:
+def synthetic_log(n_cases: int = 200, seed: int = 42) -> Iterator[Event]:
     """Yield `(case_id, activity, timestamp)` tuples deterministically."""
     rng = random.Random(seed)
     start = dt.datetime(2024, 1, 1)

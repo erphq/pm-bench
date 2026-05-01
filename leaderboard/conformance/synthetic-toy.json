@@ -17,13 +17,13 @@
       "paper": null,
       "score": {
         "fitness": 1.0,
-        "precision": 0.75,
-        "fscore": 0.8571428571428571,
-        "n_test_transitions": 6,
-        "n_model_transitions": 8
+        "precision": 1.0,
+        "fscore": 1.0,
+        "n_test_transitions": 9,
+        "n_model_transitions": 9
       },
       "scored_at": "2026-04-30T00:00:00Z",
-      "notes": "Directly-follows graph extracted from training cases. Perfect fitness on synthetic-toy (every test transition was seen at training time); precision drops because the model carries two transitions the test never uses."
+      "notes": "Directly-follows graph extracted from training cases. With 200 cases the train and test partitions both observe every path-graph edge, so fitness = precision = 1.0. Any future submission has to keep this floor while generalizing to a different test split."
     }
   ]
 }

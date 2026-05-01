@@ -31,6 +31,10 @@
     [
       "received",
       "payment_pending"
+    ],
+    [
+      "ship_order",
+      "delivery_confirmed"
     ]
   ]
 }

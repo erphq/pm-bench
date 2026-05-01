@@ -1,11 +1,9 @@
 """End-to-end + targeted tests for the outcome task.
 
-Synthetic-toy with seed=42 doesn't put any `delivery_confirmed` cases
-in the test split (path-4 is 10% of cases and the chronological tail
-happens to have none), so we test the outcome machinery on a hand-built
-event set with controlled class balance instead. The CLI smoke test
-runs against synthetic-toy and asserts the pipeline executes cleanly,
-even though the AUC degenerates to 0.5 (n_pos=0 in test).
+Synthetic-toy at n_cases=200 places ~45 positives in the test partition,
+so the outcome AUC is meaningful (prior-ref ≈ 0.63). The targeted unit
+tests still use a hand-built event set with controlled class balance so
+the AUC math is checkable by inspection.
 """
 from __future__ import annotations
 
@@ -120,8 +118,7 @@ def test_score_outcome_round_trip_via_writer(tmp_path) -> None:
 
 
 def test_full_outcome_pipeline_on_synthetic_toy(tmp_path) -> None:
-    """Pipeline runs cleanly end-to-end. AUC degenerates because seed=42's
-    test partition has no positives, but the contract still holds."""
+    """Full pipeline runs and AUC is meaningful (n_cases=200 default)."""
     runner = CliRunner()
     split_path = tmp_path / "split.json"
     prefixes_path = tmp_path / "prefixes.csv"
@@ -155,6 +152,6 @@ def test_full_outcome_pipeline_on_synthetic_toy(tmp_path) -> None:
     result = json.loads(r.output)
     assert result["task"] == "outcome"
     assert result["n"] > 0
-    # synthetic-toy with seed=42 happens to have n_pos=0 in test
-    # → degenerate AUC = 0.5 by convention. The pipeline still runs.
-    assert 0.0 <= result["auc"] <= 1.0
+    assert result["n_pos"] > 0  # both classes present in test partition
+    # The prior baseline should beat the trivial 0.5 floor with both classes.
+    assert result["auc"] > 0.5
