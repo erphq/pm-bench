@@ -126,6 +126,35 @@ def _outcome_rule(name: str):
     )
 
 
+_SPLIT_REQUIRED_KEYS = ("train", "val", "test")
+
+
+def _load_split(path: str) -> dict:
+    """Load a split JSON, validate shape, exit 2 with a clear message on bad input.
+
+    Centralizing the read here means every command that accepts `--split`
+    fails the same way on the same shapes — no one path traceback'ing
+    while another exits cleanly.
+    """
+    try:
+        with open(path) as f:
+            data = json.load(f)
+    except json.JSONDecodeError as exc:
+        click.echo(f"{path}: not valid JSON ({exc})", err=True)
+        sys.exit(2)
+    if not isinstance(data, dict):
+        click.echo(f"{path}: split must be a JSON object", err=True)
+        sys.exit(2)
+    missing = [k for k in _SPLIT_REQUIRED_KEYS if k not in data]
+    if missing:
+        click.echo(
+            f"{path}: split is missing required key(s) {missing}",
+            err=True,
+        )
+        sys.exit(2)
+    return data
+
+
 @click.group()
 @click.version_option()
 def main() -> None:
@@ -330,8 +359,7 @@ def prefixes(name: str, split_path: str, out_path: str, partition: str, task: st
     The (case_id, prefix_idx) keys join across the two truth files.
     """
     events = _load_events(name)
-    with open(split_path) as f:
-        split_data = json.load(f)
+    split_data = _load_split(split_path)
     case_ids = split_data[partition]
     if task == "next-event":
         n = write_prefixes_csv(extract_prefixes(events, case_ids), out_path)
@@ -403,8 +431,7 @@ def predict(
 ) -> None:
     """Run a reference baseline and emit predictions.csv."""
     events = _load_events(name)
-    with open(split_path) as f:
-        split_data = json.load(f)
+    split_data = _load_split(split_path)
 
     if task == "next-event":
         if baseline not in ("markov", "uniform"):
@@ -488,8 +515,7 @@ def discover(name: str, split_path: str, out_path: str, baseline: str) -> None:
     (the absolute conformance floor - fitness 0, F-score 0).
     """
     events = _load_events(name)
-    with open(split_path) as f:
-        split_data = json.load(f)
+    split_data = _load_split(split_path)
     if baseline == "dfg":
         dfg = extract_dfg(events, split_data["train"])
     else:
@@ -565,14 +591,11 @@ def _score_dispatch(
             )
             sys.exit(1)
         events = _load_events(dataset_name)
-        with open(split_path) as f:
-            split_data = json.load(f)
+        split_data = _load_split(split_path)
         truth_dfg = extract_dfg(events, split_data["test"])
-        try:
-            model_dfg = read_model_json(predictions_path)
-        except ValueError as exc:
-            click.echo(str(exc), err=True)
-            sys.exit(2)
+        # read_model_json may ValueError on bad shape; the outer score()
+        # try/except (added in the audit cleanup) catches it → exit 2.
+        model_dfg = read_model_json(predictions_path)
         cs = score_conformance(model_dfg, truth_dfg)
         click.echo(
             json.dumps(
@@ -864,7 +887,17 @@ def validate(board_path: str, repo_root: str, no_rescore: bool) -> None:
     """
     from pathlib import Path as _Path
 
-    raw = json.loads(_Path(board_path).read_text())
+    try:
+        raw = json.loads(_Path(board_path).read_text())
+    except json.JSONDecodeError as exc:
+        click.echo(f"{board_path}: not valid JSON ({exc})", err=True)
+        sys.exit(2)
+    if not isinstance(raw, dict):
+        click.echo(
+            f"{board_path}: top-level JSON must be an object, got {type(raw).__name__}",
+            err=True,
+        )
+        sys.exit(2)
     schema_errors = validate_board(raw)
     if schema_errors:
         for e in schema_errors:
@@ -898,10 +931,16 @@ def compare(board_a: str, board_b: str) -> None:
     Use case: snapshot today's standings, change something, run again,
     diff. Models that exist on only one side are surfaced separately.
     """
-    a = load_board(board_a)
-    b = load_board(board_b)
     try:
+        a = load_board(board_a)
+        b = load_board(board_b)
         result = compare_boards(a, b)
+    except json.JSONDecodeError as exc:
+        click.echo(f"not valid JSON: {exc}", err=True)
+        sys.exit(2)
+    except KeyError as exc:
+        click.echo(f"not a leaderboard file (missing key {exc})", err=True)
+        sys.exit(2)
     except ValueError as exc:
         # Runtime mismatch (different (task, dataset) on the two files)
         # → exit 2 per the convention in cli.py: 1 for usage / not-found,

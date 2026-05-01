@@ -60,6 +60,20 @@ pm-bench fetch bpi2020 --pin
 
 ## Recently shipped
 
+- **Second-pass cleanup** (`second-pass-fixes` branch).
+  After the first audit landed, a fresh sweep turned up 5 more bugs:
+  - `score_bottleneck` silently returned 0 on all-zero truth →
+    raises ValueError (degenerate dataset is undefined, must surface).
+  - `pm-bench validate` on a non-JSON file raw-tracebacked → exits 2
+    cleanly with file path + parse error.
+  - `--out path/to/missing/dir/x.csv` now auto-creates the parent
+    directory in `_open_text`'s write path.
+  - `pm-bench compare` on a non-board JSON raw-tracebacked → exits 2.
+  - Bad-shape split files (missing train/val/test) raw-tracebacked
+    on the 5 commands that read them → centralized `_load_split`
+    helper validates shape + exits 2 cleanly.
+  - `bench.seeds.variance(n_seeds=0)` raw-IndexError → ValueError.
+  - 9 new tests for these paths; 166 total, ruff clean.
 - **Audit cleanup** (`audit-cleanup` branch).
   Independent agent reviewed 22 stacked PRs and surfaced 20 issues; this
   PR fixes the 14 high-priority ones:
@@ -209,7 +223,9 @@ pm-bench fetch bpi2020 --pin
     the comparison (the only score path that doesn't take
     `--prefixes`, since the model is a global structure).
   - `leaderboard/conformance/synthetic-toy.json` with the dfg-ref
-    entry (F=0.857, fitness 1.0, precision 0.75); 4 boards now
+    entry (F=0.857, fitness 1.0, precision 0.75 at the time; the
+    synthetic-toy bump in the next branch pushed both partitions to
+    cover the full path graph, lifting F to 1.0); 4 boards now
     verify under `--all`.
   - `pm-bench leaderboard --markdown` learns a conformance table
     column set; STANDINGS.md regenerated.

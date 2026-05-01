@@ -133,6 +133,95 @@ def test_score_conformance_with_bad_model_json_exits_2(tmp_path: Path) -> None:
     assert r.exit_code == 2
 
 
+def test_validate_on_non_json_file_exits_2(tmp_path: Path) -> None:
+    """`pm-bench validate <not-a-json-file>` must surface a clean error,
+    not raw-traceback with JSONDecodeError."""
+    bad = tmp_path / "not-json.json"
+    bad.write_text("this is plain text, not JSON")
+    runner = CliRunner()
+    r = runner.invoke(main, ["validate", str(bad)])
+    assert r.exit_code == 2
+    assert "not valid JSON" in r.output
+
+
+def test_validate_on_non_object_json_exits_2(tmp_path: Path) -> None:
+    """JSON arrays / scalars at the top level aren't boards."""
+    bad = tmp_path / "list.json"
+    bad.write_text("[1, 2, 3]")
+    runner = CliRunner()
+    r = runner.invoke(main, ["validate", str(bad)])
+    assert r.exit_code == 2
+    assert "must be an object" in r.output
+
+
+def test_compare_on_non_board_json_exits_2(tmp_path: Path) -> None:
+    """A valid JSON file that isn't a board (missing `entries`) must
+    fail cleanly, not raw-traceback with KeyError."""
+    bad = tmp_path / "not-a-board.json"
+    bad.write_text(json.dumps({"foo": "bar"}))
+    real = REPO_ROOT / "leaderboard" / "next-event" / "synthetic-toy.json"
+    runner = CliRunner()
+    r = runner.invoke(main, ["compare", str(bad), str(real)])
+    assert r.exit_code == 2
+    assert "missing key" in r.output
+
+
+def test_compare_on_non_json_file_exits_2(tmp_path: Path) -> None:
+    bad = tmp_path / "garbage.json"
+    bad.write_text("definitely not json")
+    real = REPO_ROOT / "leaderboard" / "next-event" / "synthetic-toy.json"
+    runner = CliRunner()
+    r = runner.invoke(main, ["compare", str(bad), str(real)])
+    assert r.exit_code == 2
+    assert "not valid JSON" in r.output
+
+
+def test_prefixes_with_malformed_split_exits_2(tmp_path: Path) -> None:
+    """A split file missing required keys must exit 2 with a clear message."""
+    bad_split = tmp_path / "split.json"
+    bad_split.write_text(json.dumps({"foo": "bar"}))
+    runner = CliRunner()
+    r = runner.invoke(
+        main,
+        [
+            "prefixes", "synthetic-toy",
+            "--split", str(bad_split),
+            "--out", str(tmp_path / "x.csv"),
+        ],
+    )
+    assert r.exit_code == 2
+    assert "missing required key(s)" in r.output
+
+
+def test_prefixes_with_non_json_split_exits_2(tmp_path: Path) -> None:
+    bad_split = tmp_path / "split.json"
+    bad_split.write_text("not json")
+    runner = CliRunner()
+    r = runner.invoke(
+        main,
+        [
+            "prefixes", "synthetic-toy",
+            "--split", str(bad_split),
+            "--out", str(tmp_path / "x.csv"),
+        ],
+    )
+    assert r.exit_code == 2
+    assert "not valid JSON" in r.output
+
+
+def test_prefixes_to_nonexistent_dir_auto_creates(tmp_path: Path) -> None:
+    """`--out a/b/c.csv` should auto-mkdir parent rather than tracebacking."""
+    runner = CliRunner()
+    split_path = _write_split(tmp_path)
+    out_path = tmp_path / "deep" / "nested" / "missing" / "p.csv"
+    r = runner.invoke(
+        main,
+        ["prefixes", "synthetic-toy", "--split", str(split_path), "--out", str(out_path)],
+    )
+    assert r.exit_code == 0, r.output
+    assert out_path.exists()
+
+
 def test_leaderboard_all_markdown_with_verify_runs_both(tmp_path: Path) -> None:
     """`--all --markdown --verify` must actually run verify, not silently skip it."""
     import shutil

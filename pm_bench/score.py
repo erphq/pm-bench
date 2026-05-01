@@ -205,6 +205,15 @@ def score_bottleneck(
         raise ValueError("truth is empty - nothing to rank")
     if k <= 0:
         raise ValueError("k must be > 0")
+    # All-zero truth means no transition has any wait — every ranking is
+    # equivalent. Rather than silently returning 0 (which punishes every
+    # model equally and makes the leaderboard meaningless), refuse to
+    # score: the caller has a degenerate dataset and should know.
+    if all(v == 0 for v in truth.values()):
+        raise ValueError(
+            "every truth wait is 0 - bottleneck NDCG is undefined on a "
+            "degenerate dataset (no transition has any wait time)"
+        )
 
     transitions = list(truth.keys())
     # Rank by predicted wait, descending. Missing predictions = -inf so
@@ -218,8 +227,7 @@ def score_bottleneck(
 
     dcg = _dcg(pred_relevances)
     idcg = _dcg(ideal_top)
-    ndcg = dcg / idcg if idcg > 0 else 0.0
-    return BottleneckScore(ndcg_at_k=ndcg, k=k, n_transitions=len(truth))
+    return BottleneckScore(ndcg_at_k=dcg / idcg, k=k, n_transitions=len(truth))
 
 
 def score_remaining_time(

@@ -145,6 +145,16 @@ def test_bottleneck_invalid_k_raises() -> None:
         score_bottleneck({}, {("a", "b"): 1.0}, k=0)
 
 
+def test_bottleneck_all_zero_truth_raises() -> None:
+    """Degenerate truth (every transition has zero wait) is undefined and
+    must surface as an error rather than silently scoring everyone 0."""
+    with pytest.raises(ValueError, match="degenerate"):
+        score_bottleneck(
+            {("a", "b"): 5.0, ("c", "d"): 3.0},
+            {("a", "b"): 0.0, ("c", "d"): 0.0},
+        )
+
+
 def test_outcome_known_value() -> None:
     """Hand-checked: 3 pos, 3 neg, one swap → AUC = 8/9."""
     # ranks ascending: [neg=0.1→1, neg=0.2→2, pos=0.3→3, neg=0.4→4, pos=0.5→5, pos=0.6→6]

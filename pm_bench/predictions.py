@@ -34,7 +34,16 @@ def _open_text(path: str, mode: str = "rt") -> Any:
     the leaderboard rescore path share one opener — divergence between
     "what `pm-bench score` accepts" and "what `--verify` accepts" is
     impossible by construction.
+
+    For write modes, auto-creates the parent directory if missing — a
+    typo like `--out preds_dir/preds.csv` shouldn't fail with
+    FileNotFoundError when the user obviously meant for it to be
+    created.
     """
+    from pathlib import Path
+
+    if mode.startswith("w"):
+        Path(path).parent.mkdir(parents=True, exist_ok=True)
     if str(path).endswith(".gz"):
         return gzip.open(path, mode, newline="")
     return open(path, mode, newline="")

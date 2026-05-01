@@ -98,6 +98,8 @@ def _run_one(seed: int, task: str) -> dict:
 
 def variance(task: str, n_seeds: int) -> dict:
     """Return mean / std / min / max across seeds for a task's headline metric."""
+    if n_seeds < 1:
+        raise ValueError(f"n_seeds must be >= 1, got {n_seeds}")
     runs = [_run_one(seed, task) for seed in range(n_seeds)]
     metric_keys = list(runs[0].keys())
     out: dict = {"task": task, "n_seeds": n_seeds, "metrics": {}}
