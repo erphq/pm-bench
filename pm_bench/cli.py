@@ -319,7 +319,14 @@ def stats(name: str, top_n: int) -> None:
 
 @main.command()
 @click.argument("name")
-@click.option("--task", default="next-event", show_default=True)
+@click.option(
+    "--task",
+    type=click.Choice(
+        ["next-event", "remaining-time", "outcome", "bottleneck", "conformance"]
+    ),
+    default="next-event",
+    show_default=True,
+)
 def split(name: str, task: str) -> None:
     """Produce a train/val/test split for a dataset.
 

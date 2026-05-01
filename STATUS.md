@@ -60,6 +60,25 @@ pm-bench fetch bpi2020 --pin
 
 ## Recently shipped
 
+- **Round-6 cleanup** (`round6-fixes` branch). Fourth audit pass found
+  4 more real bugs:
+  - **R24**: `pm-bench split --task` accepted any string (no
+    `click.Choice`). The other commands have it; split was the only
+    outlier and would silently stamp `"task": "bogus"` into split.json.
+    Fixed.
+  - **R25**: csv module's default 128 KiB per-field size limit
+    hard-failed on legitimate long activity names with a cryptic
+    `_csv.Error`. Lifted module-wide to 2 GiB in `pm_bench/__init__.py`.
+  - **R26**: `read_csv_log` did not strip whitespace from `case_id` /
+    `activity` / `timestamp`. A spreadsheet export with `" c1"`
+    rows alongside `"c1"` rows would silently produce two distinct
+    case ids and halve every metric. Now strips.
+  - **R27**: `case_chrono_split` had no tiebreaker for cases with
+    equal start timestamps — the partition depended on dict-iteration
+    order, which depended on event-input order. Two orderings of the
+    same input would produce different splits. Secondary sort by
+    `case_id` added.
+  - 4 new tests; 195 total, ruff clean.
 - **Round-5 cleanup** (`round5-fixes` branch). A fresh agent-led audit
   found 9 more issues; this PR fixes them all:
   - **R14**: BOM-prefixed CSVs only worked for the event log, not for

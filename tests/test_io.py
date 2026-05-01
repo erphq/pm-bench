@@ -115,6 +115,43 @@ def test_synthetic_seed_bad_int_fails_clearly() -> None:
     assert "bad seed" in r.output
 
 
+def test_read_csv_log_strips_whitespace_in_columns(tmp_path: Path) -> None:
+    """Spreadsheet exports often emit ` c1` rows alongside `c1` rows;
+    without strip the two would be distinct case ids and silently
+    halve every metric."""
+    p = tmp_path / "padded.csv"
+    p.write_text(
+        "case_id,activity,timestamp\n"
+        " c1, a ,2024-01-01T00:00:00\n"
+        "c1,b,2024-01-01T01:00:00\n"
+    )
+    events = read_csv_log(p)
+    # Both rows should resolve to the same case_id.
+    assert events[0][0] == events[1][0] == "c1"
+    assert events[0][1] == "a"
+
+
+def test_read_csv_log_handles_long_activity_names(tmp_path: Path) -> None:
+    """csv module's default 128 KiB per-field limit must not block
+    legitimate event logs with verbose labels."""
+    p = tmp_path / "long.csv"
+    huge_activity = "x" * (200 * 1024)  # 200 KiB > default limit
+    p.write_text(
+        "case_id,activity,timestamp\n"
+        f"c1,{huge_activity},2024-01-01T00:00:00\n"
+    )
+    events = read_csv_log(p)
+    assert len(events[0][1]) == 200 * 1024
+
+
+def test_split_task_flag_rejects_unknown_task() -> None:
+    """`split --task bogus` must error rather than stamping the JSON."""
+    runner = CliRunner()
+    r = runner.invoke(main, ["split", "synthetic-toy", "--task", "bogus"])
+    assert r.exit_code != 0
+    assert "Invalid value" in r.output or "bogus" in r.output
+
+
 def test_fetch_accepts_synthetic_seed_suffix() -> None:
     """`fetch synthetic-toy@99` should match synthetic-toy semantics —
     'generated on demand, no fetch needed' — not error as 'unknown'."""

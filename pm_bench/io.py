@@ -75,8 +75,15 @@ def read_csv_log(path: str | Path) -> list[Event]:
             raise ValueError(f"{path}: CSV is empty or missing a header")
         case_col, act_col, ts_col = _resolve_columns(list(reader.fieldnames))
         for i, row in enumerate(reader, start=2):  # row 2 = first data row
+            # Strip leading/trailing whitespace from the three columns we
+            # consume. Spreadsheet exports routinely emit `" c1"` rows
+            # alongside `"c1"` rows, which would otherwise become two
+            # distinct case ids and silently halve every metric. Our own
+            # writers never emit padded values, so this is a safe
+            # round-trip narrowing of the input.
             try:
-                ts = datetime.fromisoformat(row[ts_col])
+                ts_raw = row[ts_col].strip() if row.get(ts_col) is not None else ""
+                ts = datetime.fromisoformat(ts_raw)
             except (KeyError, ValueError) as exc:
                 raise ValueError(f"{path}:{i}: bad timestamp {row.get(ts_col)!r}") from exc
             # Normalize away any tzinfo so a CSV mixing aware + naive
@@ -86,5 +93,5 @@ def read_csv_log(path: str | Path) -> list[Event]:
             # silently reorders aware rows relative to naive ones.
             if ts.tzinfo is not None:
                 ts = ts.astimezone(timezone.utc).replace(tzinfo=None)
-            out.append((row[case_col], row[act_col], ts))
+            out.append((row[case_col].strip(), row[act_col].strip(), ts))
     return out
