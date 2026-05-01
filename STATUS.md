@@ -60,6 +60,20 @@ pm-bench fetch bpi2020 --pin
 
 ## Recently shipped
 
+- **Bottleneck task (NDCG@10 over transitions)** (`bottleneck-task` branch).
+  - `score_bottleneck` — pure-CPython NDCG@k with average DCG/IDCG
+    discounting. Missing predictions sink to the bottom of the
+    ranking (model that refuses to predict can't claim credit).
+  - `pm_bench/bottleneck.py` — per-transition mean-wait targets.
+    Truth shape is `(activity_a, activity_b, mean_wait_seconds,
+    n_observations)` — different from the per-prefix tasks.
+  - `pm_bench/baselines/mean_wait.py` — train-mean-per-transition
+    with global-mean fallback. On synthetic-toy: NDCG@10 0.9786 over
+    6 transitions. Strong floor for any temporal model.
+  - CLI: `--task bottleneck`, `--baseline mean-wait`, end-to-end.
+  - `leaderboard/bottleneck/synthetic-toy.json` with the mean-wait-ref
+    entry; `pm-bench leaderboard --all --verify` now walks 3 boards.
+  - 7 new tests (`test_bottleneck.py`); 86 total, ruff clean.
 - **Outcome task (binary AUC)** (`outcome-task` branch).
   - `score_outcome` — pure-CPython rank-sum AUC, with average-rank
     tie-breaking; degenerate single-class case returns 0.5 by

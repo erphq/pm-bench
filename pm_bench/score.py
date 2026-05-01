@@ -1,10 +1,12 @@
 """Scoring scripts for pm-bench tasks.
 
 v0: next-event prediction (top-1 / top-3 accuracy), remaining-time
-prediction (MAE in days), and outcome prediction (AUC).
+prediction (MAE in days), outcome prediction (AUC), and bottleneck
+detection (NDCG@10 over transitions ranked by wait time).
 """
 from __future__ import annotations
 
+import math
 from collections.abc import Sequence
 from dataclasses import dataclass
 
@@ -109,6 +111,63 @@ def score_outcome(
     sum_pos_ranks = sum(ranks[i] for i in range(n) if truth[i] == 1)
     auc = (sum_pos_ranks - n_pos * (n_pos + 1) / 2) / (n_pos * n_neg)
     return OutcomeScore(auc=auc, n=n, n_pos=n_pos)
+
+
+@dataclass(frozen=True)
+class BottleneckScore:
+    """NDCG@k for transition-bottleneck ranking.
+
+    `ndcg_at_k` is the standard normalized DCG: predicted ranking's DCG
+    divided by the ideal DCG (sorting transitions descending by true
+    wait time). Higher is better; 1.0 is a perfect ranking. `k` is the
+    cutoff used; `n_transitions` is the size of the truth set.
+    """
+
+    ndcg_at_k: float
+    k: int
+    n_transitions: int
+
+
+def _dcg(relevances: Sequence[float]) -> float:
+    """Discounted cumulative gain: sum(rel_i / log2(i + 2)) for i in 0..n-1."""
+    return sum(rel / math.log2(i + 2) for i, rel in enumerate(relevances))
+
+
+def score_bottleneck(
+    predictions: dict[tuple[str, str], float],
+    truth: dict[tuple[str, str], float],
+    *,
+    k: int = 10,
+) -> BottleneckScore:
+    """NDCG@k for a transition-wait-time ranking.
+
+    `predictions[(a, b)]` is the model's predicted wait time for the
+    transition `a → b`; `truth[(a, b)]` is the actual mean wait time
+    on the held-out partition. We rank truth transitions by predicted
+    wait (descending), take the top k, and compute NDCG against the
+    ideal ranking (truth sorted descending). Transitions present in
+    truth but missing from predictions are scored 0 — a model that
+    refuses to predict can't claim credit.
+    """
+    if not truth:
+        raise ValueError("truth is empty — nothing to rank")
+    if k <= 0:
+        raise ValueError("k must be > 0")
+
+    transitions = list(truth.keys())
+    # Rank by predicted wait, descending. Missing predictions = -inf so
+    # they sink to the bottom (and contribute their truth at low rank).
+    transitions.sort(key=lambda t: predictions.get(t, float("-inf")), reverse=True)
+    pred_top = transitions[:k]
+    pred_relevances = [truth[t] for t in pred_top]
+
+    # Ideal ranking sorts truth descending.
+    ideal_top = sorted(truth.values(), reverse=True)[:k]
+
+    dcg = _dcg(pred_relevances)
+    idcg = _dcg(ideal_top)
+    ndcg = dcg / idcg if idcg > 0 else 0.0
+    return BottleneckScore(ndcg_at_k=ndcg, k=k, n_transitions=len(truth))
 
 
 def score_remaining_time(

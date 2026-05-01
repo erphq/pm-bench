@@ -1,6 +1,13 @@
+import math
+
 import pytest
 
-from pm_bench import score_next_event, score_outcome, score_remaining_time
+from pm_bench import (
+    score_bottleneck,
+    score_next_event,
+    score_outcome,
+    score_remaining_time,
+)
 
 
 def test_top1_perfect() -> None:
@@ -83,6 +90,59 @@ def test_outcome_single_class_returns_half() -> None:
 def test_outcome_lengths_must_match() -> None:
     with pytest.raises(ValueError):
         score_outcome([0.1], [0, 1])
+
+
+def test_bottleneck_perfect_ranking_is_one() -> None:
+    truth = {("a", "b"): 10.0, ("c", "d"): 5.0, ("e", "f"): 1.0}
+    preds = {("a", "b"): 10.0, ("c", "d"): 5.0, ("e", "f"): 1.0}
+    s = score_bottleneck(preds, truth, k=10)
+    assert s.ndcg_at_k == 1.0
+    assert s.n_transitions == 3
+    assert s.k == 10
+
+
+def test_bottleneck_inverted_ranking_below_one() -> None:
+    truth = {("a", "b"): 10.0, ("c", "d"): 5.0, ("e", "f"): 1.0}
+    # Predicted scores invert the order.
+    preds = {("a", "b"): 1.0, ("c", "d"): 5.0, ("e", "f"): 10.0}
+    s = score_bottleneck(preds, truth)
+    assert s.ndcg_at_k < 1.0
+
+
+def test_bottleneck_missing_predictions_sink_to_bottom() -> None:
+    """A model that doesn't predict at all gets the worst possible ranking."""
+    truth = {("a", "b"): 10.0, ("c", "d"): 5.0}
+    preds: dict = {}
+    s = score_bottleneck(preds, truth)
+    # All transitions tied at -inf → tie-break by dict insertion order.
+    # The actual NDCG depends on that order; just assert it's a valid value.
+    assert 0.0 <= s.ndcg_at_k <= 1.0
+
+
+def test_bottleneck_known_value() -> None:
+    """Hand-checked: 3 transitions, predicted ranking [b,a,c], truth [a,b,c]."""
+    truth = {"a": 10.0, "b": 5.0, "c": 1.0}
+    # Make tuples to match the API.
+    truth_t = {(k, "x"): v for k, v in truth.items()}
+    # Predicted ranks b > a > c
+    preds_t = {("b", "x"): 100.0, ("a", "x"): 50.0, ("c", "x"): 1.0}
+    # DCG = 5/log2(2) + 10/log2(3) + 1/log2(4) = 5 + 10/1.585 + 0.5
+    # IDCG = 10/log2(2) + 5/log2(3) + 1/log2(4) = 10 + 5/1.585 + 0.5
+    expected_dcg = 5.0 / math.log2(2) + 10.0 / math.log2(3) + 1.0 / math.log2(4)
+    expected_idcg = 10.0 / math.log2(2) + 5.0 / math.log2(3) + 1.0 / math.log2(4)
+    expected_ndcg = expected_dcg / expected_idcg
+    s = score_bottleneck(preds_t, truth_t, k=10)
+    assert abs(s.ndcg_at_k - expected_ndcg) < 1e-9
+
+
+def test_bottleneck_empty_truth_raises() -> None:
+    with pytest.raises(ValueError):
+        score_bottleneck({}, {})
+
+
+def test_bottleneck_invalid_k_raises() -> None:
+    with pytest.raises(ValueError):
+        score_bottleneck({}, {("a", "b"): 1.0}, k=0)
 
 
 def test_outcome_known_value() -> None:

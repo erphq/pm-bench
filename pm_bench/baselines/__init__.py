@@ -16,6 +16,7 @@ from pm_bench.baselines.mean_time import (
     read_time_predictions_csv,
     write_time_predictions_csv,
 )
+from pm_bench.baselines.mean_wait import MeanWaitBaseline, fit_mean_wait, predict_mean_wait
 from pm_bench.baselines.prior_outcome import (
     OutcomePrediction,
     PriorOutcomeBaseline,
@@ -28,13 +29,16 @@ from pm_bench.baselines.prior_outcome import (
 __all__ = [
     "MarkovBaseline",
     "MeanTimeBaseline",
+    "MeanWaitBaseline",
     "OutcomePrediction",
     "PriorOutcomeBaseline",
     "TimePrediction",
     "fit_mean_time",
+    "fit_mean_wait",
     "fit_prior_outcome",
     "predict_markov",
     "predict_mean_time",
+    "predict_mean_wait",
     "predict_prior_outcome",
     "read_outcome_predictions_csv",
     "read_time_predictions_csv",

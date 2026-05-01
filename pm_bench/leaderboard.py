@@ -21,6 +21,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 
+from pm_bench.bottleneck import BottleneckTarget, extract_bottleneck_targets
 from pm_bench.predictions import Prediction
 from pm_bench.prefixes import (
     PREFIX_SEP,
@@ -29,7 +30,7 @@ from pm_bench.prefixes import (
     extract_prefixes,
     extract_remaining_time_targets,
 )
-from pm_bench.score import score_next_event, score_remaining_time
+from pm_bench.score import score_bottleneck, score_next_event, score_remaining_time
 
 
 @dataclass(frozen=True)
@@ -126,6 +127,12 @@ def _time_truth_for_dataset(name: str) -> list[TimeTarget]:
     return list(extract_remaining_time_targets(events, test_cases))
 
 
+def _bottleneck_truth_for_dataset(name: str) -> list[BottleneckTarget]:
+    """Canonical bottleneck truth set for a known dataset."""
+    events, test_cases = _events_and_test_cases(name)
+    return list(extract_bottleneck_targets(events, test_cases))
+
+
 def _rescore_next_event(board: Board, repo_root: Path) -> list[tuple[Entry, dict]]:
     truth = _truth_for_dataset(board.dataset)
     truth_keys = [(t.case_id, t.prefix_idx) for t in truth]
@@ -179,6 +186,34 @@ def _rescore_remaining_time(board: Board, repo_root: Path) -> list[tuple[Entry, 
     return out
 
 
+def _rescore_bottleneck(board: Board, repo_root: Path) -> list[tuple[Entry, dict]]:
+    import csv
+    import gzip
+
+    truth = _bottleneck_truth_for_dataset(board.dataset)
+    truth_dict = {(t.activity_a, t.activity_b): t.mean_wait_seconds for t in truth}
+
+    out: list[tuple[Entry, dict]] = []
+    for entry in board.entries:
+        pred_path = repo_root / entry.predictions_path
+        opener = gzip.open if str(pred_path).endswith(".gz") else open
+        pred_dict: dict[tuple[str, str], float] = {}
+        with opener(pred_path, "rt", newline="") as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                pred_dict[(row["activity_a"], row["activity_b"])] = float(
+                    row["predicted_wait_seconds"]
+                )
+        s = score_bottleneck(pred_dict, truth_dict, k=10)
+        out.append(
+            (
+                entry,
+                {"ndcg_at_k": s.ndcg_at_k, "k": s.k, "n_transitions": s.n_transitions},
+            )
+        )
+    return out
+
+
 def rescore(board: Board, repo_root: str | Path = ".") -> list[tuple[Entry, dict]]:
     """Re-run scoring for every entry; return (entry, fresh_score) pairs."""
     root = Path(repo_root)
@@ -186,6 +221,8 @@ def rescore(board: Board, repo_root: str | Path = ".") -> list[tuple[Entry, dict
         return _rescore_next_event(board, root)
     if board.task == "remaining-time":
         return _rescore_remaining_time(board, root)
+    if board.task == "bottleneck":
+        return _rescore_bottleneck(board, root)
     raise ValueError(f"unknown task: {board.task}")
 
 
@@ -209,8 +246,8 @@ def standings(board: Board, *, key: str | None = None) -> list[Entry]:
     """Return entries sorted by the appropriate score key.
 
     Direction follows the metric: top1 (higher better) for next-event,
-    mae_days (lower better) for remaining-time. Pass `key` explicitly to
-    override.
+    mae_days (lower better) for remaining-time, auc / ndcg_at_k (higher
+    better) for outcome / bottleneck. Pass `key` explicitly to override.
     """
     if key is None:
         if board.task == "remaining-time":
@@ -218,5 +255,10 @@ def standings(board: Board, *, key: str | None = None) -> list[Entry]:
                 board.entries,
                 key=lambda e: e.score.get("mae_days", float("inf")),
             )
-        key = "top1"
+        if board.task == "outcome":
+            key = "auc"
+        elif board.task == "bottleneck":
+            key = "ndcg_at_k"
+        else:
+            key = "top1"
     return sorted(board.entries, key=lambda e: e.score.get(key, float("-inf")), reverse=True)

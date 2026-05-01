@@ -224,7 +224,8 @@ honesty. The point of the benchmark is to make the comparison real.
 - [🟡] v0.3 — scoring scripts for all 5 tasks. next-event ✅,
       remaining-time ✅, outcome ✅ (AUC scoring + prior baseline +
       pipeline; leaderboard entry waits on a dataset whose test split
-      has both classes); conformance / bottleneck remain.
+      has both classes), bottleneck ✅ (NDCG@10 + mean-wait baseline +
+      leaderboard entry); conformance remains.
 - [🟡] v0.4 — leaderboard CI + landing page. Standings format,
       reference Markov entry, `pm-bench leaderboard [--all] --verify`,
       and the dedicated `leaderboard.yml` GitHub workflow shipped;

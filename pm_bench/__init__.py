@@ -20,9 +20,11 @@ from pm_bench.prefixes import (
 )
 from pm_bench.registry import Dataset, get_dataset, load_registry
 from pm_bench.score import (
+    BottleneckScore,
     NextEventScore,
     OutcomeScore,
     RemainingTimeScore,
+    score_bottleneck,
     score_next_event,
     score_outcome,
     score_remaining_time,
@@ -30,6 +32,7 @@ from pm_bench.score import (
 from pm_bench.split import Event, Split, case_chrono_split
 
 __all__ = [
+    "BottleneckScore",
     "Dataset",
     "Event",
     "NextEventScore",
@@ -50,6 +53,7 @@ __all__ = [
     "read_predictions_csv",
     "read_prefixes_csv",
     "read_time_targets_csv",
+    "score_bottleneck",
     "score_next_event",
     "score_outcome",
     "score_remaining_time",

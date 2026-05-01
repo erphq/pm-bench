@@ -9,7 +9,7 @@ Be the default benchmark for new process-mining methods. Within 18 months,
   (`pm-bench fetch <name> [--pin]`); per-dataset hash pins pending
   the one-time TOS-gated downloads
 - 5 tasks with fixed scoring scripts (next-event ✅, remaining-time ✅,
-  outcome ✅; conformance, bottleneck pending)
+  outcome ✅, bottleneck ✅; conformance pending)
 - `gnn` runs end-to-end as the reference baseline (Markov reference ✅;
   `gnn` integration pending the first pinned dataset)
 - End-to-end loop runs on `synthetic-toy` ✅ — split → prefixes →

@@ -14,11 +14,19 @@ from pm_bench.baselines.mean_time import (
     read_time_predictions_csv,
     write_time_predictions_csv,
 )
+from pm_bench.baselines.mean_wait import fit_mean_wait, predict_mean_wait
 from pm_bench.baselines.prior_outcome import (
     fit_prior_outcome,
     predict_prior_outcome,
     read_outcome_predictions_csv,
     write_outcome_predictions_csv,
+)
+from pm_bench.bottleneck import (
+    extract_bottleneck_targets,
+    read_bottleneck_predictions_csv,
+    read_bottleneck_targets_csv,
+    write_bottleneck_predictions_csv,
+    write_bottleneck_targets_csv,
 )
 from pm_bench.fetch import (
     FetchError,
@@ -40,7 +48,12 @@ from pm_bench.prefixes import (
     write_time_targets_csv,
 )
 from pm_bench.registry import get_dataset, load_registry
-from pm_bench.score import score_next_event, score_outcome, score_remaining_time
+from pm_bench.score import (
+    score_bottleneck,
+    score_next_event,
+    score_outcome,
+    score_remaining_time,
+)
 from pm_bench.split import case_chrono_split
 
 
@@ -222,7 +235,7 @@ def split(name: str, task: str) -> None:
 )
 @click.option(
     "--task",
-    type=click.Choice(["next-event", "remaining-time", "outcome"]),
+    type=click.Choice(["next-event", "remaining-time", "outcome", "bottleneck"]),
     default="next-event",
     show_default=True,
 )
@@ -243,10 +256,15 @@ def prefixes(name: str, split_path: str, out_path: str, partition: str, task: st
         n = write_time_targets_csv(
             extract_remaining_time_targets(events, case_ids), out_path
         )
-    else:
+    elif task == "outcome":
         rule = _outcome_rule(name)
         n = write_outcome_targets_csv(
             extract_outcome_targets(events, case_ids, rule), out_path
+        )
+    else:
+        # bottleneck
+        n = write_bottleneck_targets_csv(
+            extract_bottleneck_targets(events, case_ids), out_path
         )
     click.echo(f"wrote {n} prefixes to {out_path} (task={task} partition={partition})")
 
@@ -274,14 +292,17 @@ def prefixes(name: str, split_path: str, out_path: str, partition: str, task: st
 )
 @click.option(
     "--baseline",
-    type=click.Choice(["markov", "mean", "prior"]),
+    type=click.Choice(["markov", "mean", "prior", "mean-wait"]),
     default="markov",
     show_default=True,
-    help="markov → next-event; mean → remaining-time; prior → outcome.",
+    help=(
+        "markov → next-event; mean → remaining-time; "
+        "prior → outcome; mean-wait → bottleneck."
+    ),
 )
 @click.option(
     "--task",
-    type=click.Choice(["next-event", "remaining-time", "outcome"]),
+    type=click.Choice(["next-event", "remaining-time", "outcome", "bottleneck"]),
     default="next-event",
     show_default=True,
 )
@@ -312,8 +333,7 @@ def predict(
         time_targets = read_time_targets_csv(prefixes_path)
         time_preds = predict_mean_time(time_model, time_targets)
         n = write_time_predictions_csv(time_preds, out_path)
-    else:
-        # outcome
+    elif task == "outcome":
         if baseline != "prior":
             raise click.UsageError(f"baseline {baseline!r} doesn't apply to outcome")
         rule = _outcome_rule(name)
@@ -326,6 +346,14 @@ def predict(
             seq_by_case.setdefault(cid, []).append(act)
         outcome_preds = predict_prior_outcome(outcome_model, outcome_targets, seq_by_case)
         n = write_outcome_predictions_csv(outcome_preds, out_path)
+    else:
+        # bottleneck
+        if baseline != "mean-wait":
+            raise click.UsageError(f"baseline {baseline!r} doesn't apply to bottleneck")
+        wait_model = fit_mean_wait(events, split_data["train"])
+        wait_targets = read_bottleneck_targets_csv(prefixes_path)
+        wait_preds = predict_mean_wait(wait_model, wait_targets)
+        n = write_bottleneck_predictions_csv(wait_preds, out_path)
     click.echo(f"wrote {n} predictions to {out_path} (task={task} baseline={baseline})")
 
 
@@ -340,7 +368,7 @@ def predict(
 )
 @click.option(
     "--task",
-    type=click.Choice(["next-event", "remaining-time", "outcome"]),
+    type=click.Choice(["next-event", "remaining-time", "outcome", "bottleneck"]),
     default="next-event",
     show_default=True,
 )
@@ -399,27 +427,46 @@ def score(predictions_path: str, prefixes_path: str, task: str) -> None:
         )
         return
 
-    # outcome
-    truth_o = read_outcome_targets_csv(prefixes_path)
-    pred_o = read_outcome_predictions_csv(predictions_path)
-    pred_o_lookup = {(p.case_id, p.prefix_idx): p.score for p in pred_o}
-    missing = [
-        (t.case_id, t.prefix_idx)
-        for t in truth_o
-        if (t.case_id, t.prefix_idx) not in pred_o_lookup
-    ]
-    if missing:
+    if task == "outcome":
+        truth_o = read_outcome_targets_csv(prefixes_path)
+        pred_o = read_outcome_predictions_csv(predictions_path)
+        pred_o_lookup = {(p.case_id, p.prefix_idx): p.score for p in pred_o}
+        missing = [
+            (t.case_id, t.prefix_idx)
+            for t in truth_o
+            if (t.case_id, t.prefix_idx) not in pred_o_lookup
+        ]
+        if missing:
+            click.echo(
+                f"predictions is missing {len(missing)} target(s); first: {missing[0]}",
+                err=True,
+            )
+            sys.exit(2)
+        preds_o = [pred_o_lookup[(t.case_id, t.prefix_idx)] for t in truth_o]
+        truth_o_int = [t.outcome for t in truth_o]
+        os_ = score_outcome(preds_o, truth_o_int)
         click.echo(
-            f"predictions is missing {len(missing)} target(s); first: {missing[0]}",
-            err=True,
+            json.dumps(
+                {"task": task, "auc": os_.auc, "n": os_.n, "n_pos": os_.n_pos},
+                indent=2,
+            ),
         )
-        sys.exit(2)
-    preds_o = [pred_o_lookup[(t.case_id, t.prefix_idx)] for t in truth_o]
-    truth_o_int = [t.outcome for t in truth_o]
-    os_ = score_outcome(preds_o, truth_o_int)
+        return
+
+    # bottleneck
+    truth_b = read_bottleneck_targets_csv(prefixes_path)
+    pred_b = read_bottleneck_predictions_csv(predictions_path)
+    truth_dict = {(t.activity_a, t.activity_b): t.mean_wait_seconds for t in truth_b}
+    pred_dict = {(p.activity_a, p.activity_b): p.predicted_wait_seconds for p in pred_b}
+    bs = score_bottleneck(pred_dict, truth_dict, k=10)
     click.echo(
         json.dumps(
-            {"task": task, "auc": os_.auc, "n": os_.n, "n_pos": os_.n_pos},
+            {
+                "task": task,
+                "ndcg_at_k": bs.ndcg_at_k,
+                "k": bs.k,
+                "n_transitions": bs.n_transitions,
+            },
             indent=2,
         ),
     )
@@ -509,13 +556,24 @@ def leaderboard(
     click.echo(f"{board.task} · {board.dataset} · {board.metric}")
     click.echo("-" * (width + 30))
     for e in standings(board):
-        n = e.score.get("n")
         if board.task == "remaining-time":
             mae = e.score.get("mae_days")
+            n = e.score.get("n")
             click.echo(f"{e.model:<{width}}  mae_days={mae:.4f}  n={n}")
+        elif board.task == "outcome":
+            auc = e.score.get("auc")
+            n = e.score.get("n")
+            n_pos = e.score.get("n_pos")
+            click.echo(f"{e.model:<{width}}  auc={auc:.4f}  n={n}  n_pos={n_pos}")
+        elif board.task == "bottleneck":
+            ndcg = e.score.get("ndcg_at_k")
+            k = e.score.get("k")
+            n_t = e.score.get("n_transitions")
+            click.echo(f"{e.model:<{width}}  ndcg@{k}={ndcg:.4f}  n_transitions={n_t}")
         else:
             top1 = e.score.get("top1")
             top3 = e.score.get("top3")
+            n = e.score.get("n")
             click.echo(
                 f"{e.model:<{width}}  top1={top1:.4f}  top3={top3:.4f}  n={n}"
             )
