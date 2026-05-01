@@ -60,6 +60,11 @@ pm-bench fetch bpi2020 --pin
 
 ## Recently shipped
 
+- **CONTRIBUTING.md** (`contributing-doc` branch).
+  - Step-by-step submission walkthrough: pipeline commands per task,
+    file format table, pre-PR checklist, noise-quantification call
+    via `bench.seeds`.
+  - README points at it from the "Submitting" section.
 - **`bench/seeds.py` cross-seed variance harness** (`seeds-variance`
   branch).
   - `python -m bench.seeds --n 30` runs each baseline at 30 seeds of

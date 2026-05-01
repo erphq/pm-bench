@@ -185,6 +185,12 @@ Live numbers per (task, dataset) - auto-generated and verified in CI:
 
 ## ✦ Submitting to the leaderboard
 
+See [CONTRIBUTING.md](./CONTRIBUTING.md) for the full walkthrough — file
+formats, the score command per task, the verify-before-PR step, and the
+noise-quantification recommendation.
+
+The short version:
+
 Open a PR adding a row to `leaderboard/<task>/<dataset>.json`:
 
 ```json
