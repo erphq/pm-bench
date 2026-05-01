@@ -28,6 +28,10 @@ VALID_TASKS: set[str] = {
     "conformance",
 }
 
+# The only blessed split convention is case-level chronological. If we
+# ever add k-fold or random splits, this set grows.
+VALID_SPLIT_KINDS: set[str] = {"case-chrono"}
+
 REQUIRED_TOP_KEYS: tuple[str, ...] = (
     "task",
     "dataset",
@@ -103,6 +107,14 @@ def validate_board(board: dict) -> list[str]:
             errors.append(_err_path("$.split", "must be an object"))
         elif "kind" not in split:
             errors.append(_err_path("$.split", "missing required key 'kind'"))
+        elif split["kind"] not in VALID_SPLIT_KINDS:
+            errors.append(
+                _err_path(
+                    "$.split.kind",
+                    f"unknown split kind {split['kind']!r}; expected one of "
+                    f"{sorted(VALID_SPLIT_KINDS)!r}",
+                )
+            )
 
     return errors
 

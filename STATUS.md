@@ -1,6 +1,6 @@
 # Status
 
-_Last updated: 2026-04-30._
+_Last updated: 2026-05-01._
 
 ## Where we are
 
@@ -80,6 +80,9 @@ pm-bench fetch bpi2020 --pin
     outside the repo. Schema now rejects both shapes; the residual
     KeyError on a non-CSV file at the verify path is caught and
     surfaced as exit 2.
+  - **R13**: `split.kind` previously accepted any string. Schema now
+    requires it to be in `{case-chrono}` (the only convention
+    pm-bench supports today; the set grows when we add more).
   - `pm-bench compare` now annotates each metric delta with
     `direction: "higher_is_better" | "lower_is_better"` and an
     `improved: bool` flag (only for metrics with a known direction —

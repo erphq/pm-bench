@@ -111,6 +111,19 @@ def test_absolute_predictions_path_rejected() -> None:
     assert any("absolute" in e for e in errors)
 
 
+def test_unknown_split_kind_rejected() -> None:
+    bad = {
+        "task": "next-event",
+        "dataset": "x",
+        "metric": "m",
+        "scored_with": "z",
+        "split": {"kind": "random"},
+        "entries": [],
+    }
+    errors = validate_board(bad)
+    assert any("unknown split kind" in e for e in errors)
+
+
 def test_traversing_predictions_path_rejected() -> None:
     """`../` in predictions_path could escape the repo."""
     bad = {
