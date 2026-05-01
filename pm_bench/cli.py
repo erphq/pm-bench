@@ -66,16 +66,32 @@ from pm_bench.split import case_chrono_split
 def _load_events(name: str) -> list:
     """Return a materialized event list for a dataset.
 
-    v0 supports `synthetic-toy` only; other datasets exit with a clear
-    instruction to wait for v0.1's fetch+cache machinery.
+    Three supported inputs:
+    - `synthetic-toy` → bundled deterministic generator
+    - any path that looks like a CSV (`.csv` / `.csv.gz` / contains `/`)
+      → loaded via `pm_bench.io.read_csv_log`
+    - any other registry name → not yet wired (v0.1 fetch machinery
+      handles the cache; XES parsing lands when a dataset is pinned)
     """
-    if name != "synthetic-toy":
-        click.echo(
-            f"v0 only supports 'synthetic-toy' (got {name}); see README for the v0.1 milestone",
-            err=True,
-        )
-        sys.exit(1)
-    return list(_synth.synthetic_log())
+    from pm_bench.io import looks_like_path, read_csv_log
+
+    if looks_like_path(name):
+        try:
+            return read_csv_log(name)
+        except FileNotFoundError:
+            click.echo(f"no such file: {name}", err=True)
+            sys.exit(1)
+        except ValueError as exc:
+            click.echo(f"{exc}", err=True)
+            sys.exit(2)
+    if name == "synthetic-toy":
+        return list(_synth.synthetic_log())
+    click.echo(
+        f"unknown dataset: {name}. Use 'synthetic-toy', a CSV path, or wait "
+        "for the v0.1 fetch machinery to wire your registry entry.",
+        err=True,
+    )
+    sys.exit(1)
 
 
 def _outcome_rule(name: str):

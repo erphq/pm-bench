@@ -120,6 +120,20 @@ The full loop (`split → prefixes → predict → score`) runs end-to-end on
 `synthetic-toy` today; it's covered by `tests/test_e2e.py` and locks
 the file formats the leaderboard depends on.
 
+**Bring your own CSV.** Any path-like argument is loaded as an event
+log directly, no registry plumbing needed:
+
+```bash
+pm-bench split path/to/log.csv > split.json
+pm-bench prefixes path/to/log.csv --split split.json --out prefixes.csv
+# ... rest of the loop is the same
+```
+
+CSVs need columns mappable to `case_id`, `activity`, `timestamp` —
+both pm-bench-native names and PM4Py XES-derived names
+(`case:concept:name`, `concept:name`, `time:timestamp`) work.
+`.csv.gz` is auto-detected.
+
 For the public datasets, the fetch + hash machinery is in place:
 
 ```bash

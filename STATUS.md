@@ -60,6 +60,17 @@ pm-bench fetch bpi2020 --pin
 
 ## Recently shipped
 
+- **CSV ingest** (`csv-ingest` branch).
+  - `pm_bench/io.py:read_csv_log` — CSV / `.csv.gz` event-log loader
+    that accepts both pm-bench-native column names (`case_id`,
+    `activity`, `timestamp`) and PM4Py XES-derived names
+    (`case:concept:name`, `concept:name`, `time:timestamp`).
+  - `_load_events` auto-detects path-like inputs (`/`, `.csv`,
+    `.csv.gz`, `.tsv`) and routes to the loader; existing registry
+    names still work. `pm-bench split path/to/log.csv` runs the
+    full split → prefixes → predict → score loop on an arbitrary
+    CSV without registry plumbing.
+  - 8 new tests including a click-runner end-to-end. 97 total.
 - **STANDINGS.md auto-generation** (`standings-md` branch).
   - `pm-bench leaderboard --all --markdown` emits a markdown doc
     listing every board with a task-aware table.
