@@ -1,5 +1,15 @@
 # Status
 
+
+## Today’s CI
+
+<!-- BEGIN: ci-today -->
+_Auto-refreshed by [`erphq/.github/refresh-status.yml`](https://github.com/erphq/.github/blob/main/.github/workflows/refresh-status.yml). Window: runs created since 00:00 UTC on 2026-05-03 (`2026-05-03T00:00:00Z`)._
+
+| Tests | Runs today | ✅ pass | ❌ fail | ⚠️ other |
+|---:|---:|---:|---:|---:|
+| **232** | **2** | **2** | **0** | **0** |
+<!-- END: ci-today -->
 _Last updated: 2026-05-01 — XES parser + dispatch wiring shipped._
 
 ## Where we are
