@@ -8,7 +8,7 @@
 
 [![license](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 [![status](https://img.shields.io/badge/status-v0.4-green.svg)](#roadmap)
-[![tests](https://img.shields.io/badge/tests-240%20passing-green.svg)](./tests)
+[![tests](https://img.shields.io/badge/tests-232%20passing-brightgreen.svg)](./tests)
 [![python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](#install)
 
 </div>
