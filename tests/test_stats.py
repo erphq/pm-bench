@@ -35,6 +35,13 @@ def test_summarize_case_lengths() -> None:
     assert s.median_case_length == 2
 
 
+def test_summarize_min_max_case_lengths() -> None:
+    s = summarize(_events())
+    # cases: c1=3 events, c2=2 events, c3=1 event
+    assert s.min_case_length == 1
+    assert s.max_case_length == 3
+
+
 def test_summarize_top_activities_sorted_by_count_desc() -> None:
     s = summarize(_events(), top_n=10)
     counts = [c for _, c in s.top_activities]
@@ -45,7 +52,7 @@ def test_summarize_top_activities_sorted_by_count_desc() -> None:
 def test_summarize_top_transitions() -> None:
     s = summarize(_events())
     transitions = {pair: c for pair, c in s.top_transitions}
-    assert transitions[("a", "b")] == 2  # c1 a→b and c2 a→b
+    assert transitions[("a", "b")] == 2  # c1 a->b and c2 a->b
     assert transitions[("b", "c")] == 1
 
 
@@ -62,6 +69,12 @@ def test_summarize_empty_log_is_safe() -> None:
     assert s.earliest is None
 
 
+def test_summarize_empty_log_min_max_zero() -> None:
+    s = summarize([])
+    assert s.min_case_length == 0
+    assert s.max_case_length == 0
+
+
 def test_cli_stats_synthetic_toy() -> None:
     runner = CliRunner()
     r = runner.invoke(main, ["stats", "synthetic-toy", "--top-n", "3"])
@@ -70,3 +83,5 @@ def test_cli_stats_synthetic_toy() -> None:
     assert data["n_cases"] == 200
     assert data["n_events"] == 965
     assert len(data["top_activities"]) == 3
+    assert "min_case_length" in data
+    assert "max_case_length" in data
