@@ -76,17 +76,17 @@ def _load_events(name: str) -> list:
     """Return a materialized event list for a dataset.
 
     Supported inputs:
-    - `synthetic-toy` → bundled deterministic generator (seed=42)
-    - `synthetic-toy@<seed>` → same generator at a different seed (e.g.
+    - `synthetic-toy` -> bundled deterministic generator (seed=42)
+    - `synthetic-toy@<seed>` -> same generator at a different seed (e.g.
       `synthetic-toy@99`). The `@<seed>` suffix is for variance
       experiments; canonical leaderboard runs always use bare
       `synthetic-toy`.
     - any path that looks like a CSV (`.csv` / `.csv.gz` / contains `/`)
-      → loaded via `pm_bench.io.read_csv_log`
-    - any path ending in `.xes` / `.xes.gz` → loaded via
+      -> loaded via `pm_bench.io.read_csv_log`
+    - any path ending in `.xes` / `.xes.gz` -> loaded via
       `pm_bench.xes.read_xes_log`
     - a registry-named dataset whose hash is pinned and cached locally
-      → fetched + parsed (CSV or XES per the registry `format`).
+      -> fetched + parsed (CSV or XES per the registry `format`).
     """
     from pm_bench.io import looks_like_path, read_csv_log
     from pm_bench.xes import read_xes_log
@@ -219,7 +219,7 @@ def _load_split(path: str) -> dict:
     """Load a split JSON, validate shape, exit 2 with a clear message on bad input.
 
     Centralizing the read here means every command that accepts `--split`
-    fails the same way on the same shapes — no one path traceback'ing
+    fails the same way on the same shapes - no one path traceback'ing
     while another exits cleanly.
     """
     try:
@@ -271,7 +271,7 @@ def cmd_list() -> None:
 @click.argument("name")
 def info(name: str) -> None:
     """Show details for a dataset."""
-    # `info synthetic-toy@99` should resolve to the base entry — every
+    # `info synthetic-toy@99` should resolve to the base entry - every
     # other verb accepts the @<seed> suffix and this one was the
     # outlier. Strip the suffix before the registry lookup.
     lookup_name = name.split("@", 1)[0] if "@" in name else name
@@ -312,7 +312,7 @@ def fetch(name: str, pin: bool) -> None:
     Auto-downloads when `download_url` is set; otherwise prints
     instructions for the manual TOS-gated download path (4TU / Mendeley).
     """
-    # synthetic-toy@<seed> is a variant of synthetic-toy — same "generated
+    # synthetic-toy@<seed> is a variant of synthetic-toy - same "generated
     # on demand, no fetch needed" semantics. Other commands accept the
     # @<seed> suffix; we match here for consistency.
     if name.startswith("synthetic-toy@") or name == "synthetic-toy":
@@ -392,6 +392,8 @@ def stats(name: str, top_n: int) -> None:
                 "latest": s.latest.isoformat() if s.latest else None,
                 "mean_case_length": s.mean_case_length,
                 "median_case_length": s.median_case_length,
+                "min_case_length": s.min_case_length,
+                "max_case_length": s.max_case_length,
                 "top_activities": [
                     {"activity": a, "count": c} for a, c in s.top_activities
                 ],
@@ -409,7 +411,7 @@ def stats(name: str, top_n: int) -> None:
 def split(name: str) -> None:
     """Produce a train/val/test split for a dataset.
 
-    The split is task-agnostic — every task (next-event, remaining-time,
+    The split is task-agnostic - every task (next-event, remaining-time,
     outcome, bottleneck, conformance) shares the same case-level
     chronological partition, which is the whole point of pm-bench. So
     this command takes no `--task`; downstream commands (`prefixes`,
@@ -521,8 +523,8 @@ def prefixes(name: str, split_path: str, out_path: str, partition: str, task: st
     default="markov",
     show_default=True,
     help=(
-        "markov / uniform → next-event; mean / zero → remaining-time; "
-        "prior / global → outcome; mean-wait / random → bottleneck."
+        "markov / uniform -> next-event; mean / zero -> remaining-time; "
+        "prior / global -> outcome; mean-wait / random -> bottleneck."
     ),
 )
 @click.option(
@@ -618,7 +620,7 @@ def predict(
     type=click.Choice(["dfg", "empty"]),
     default="dfg",
     show_default=True,
-    help="dfg → DFG from training cases; empty → no transitions (absolute floor).",
+    help="dfg -> DFG from training cases; empty -> no transitions (absolute floor).",
 )
 @_runtime_safe
 def discover(name: str, split_path: str, out_path: str, baseline: str) -> None:
@@ -681,8 +683,8 @@ def score(
     try:
         _score_dispatch(predictions_path, prefixes_path, dataset_name, split_path, task)
     except (KeyError, ValueError) as exc:
-        # KeyError → predictions CSV is missing a required column.
-        # ValueError → score function rejected the inputs (length
+        # KeyError -> predictions CSV is missing a required column.
+        # ValueError -> score function rejected the inputs (length
         # mismatch, empty truth, malformed conformance JSON, etc.).
         # In either case it's a clean runtime error, exit 2.
         click.echo(str(exc), err=True)
@@ -708,7 +710,7 @@ def _score_dispatch(
         split_data = _load_split(split_path)
         truth_dfg = extract_dfg(events, split_data["test"])
         # read_model_json may ValueError on bad shape; the outer score()
-        # try/except (added in the audit cleanup) catches it → exit 2.
+        # try/except (added in the audit cleanup) catches it -> exit 2.
         model_dfg = read_model_json(predictions_path)
         cs = score_conformance(model_dfg, truth_dfg)
         click.echo(
@@ -969,7 +971,7 @@ def leaderboard(
         return
 
     width = max((len(e.model) for e in board.entries), default=10)
-    click.echo(f"{board.task} · {board.dataset} · {board.metric}")
+    click.echo(f"{board.task} . {board.dataset} . {board.metric}")
     click.echo("-" * (width + 30))
     for e in standings(board):
         if board.task == "remaining-time":
@@ -1047,7 +1049,7 @@ def validate(board_path: str, repo_root: str, no_rescore: bool) -> None:
         return
 
     # `load_board` re-parses the JSON we already have in `raw`. Pay that
-    # cost once — the file is small and the alternative is leaking the
+    # cost once - the file is small and the alternative is leaking the
     # Board construction into this command.
     board = load_board(board_path)
     try:
@@ -1098,7 +1100,7 @@ def compare(board_a: str, board_b: str) -> None:
         sys.exit(2)
     except ValueError as exc:
         # Runtime mismatch (different (task, dataset) on the two files)
-        # → exit 2 per the convention in cli.py: 1 for usage / not-found,
+        # -> exit 2 per the convention in cli.py: 1 for usage / not-found,
         # 2 for runtime errors after args are accepted.
         click.echo(str(exc), err=True)
         sys.exit(2)
