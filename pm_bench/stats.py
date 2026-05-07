@@ -2,9 +2,9 @@
 
 Useful when inspecting a new dataset - n_cases, n_events, distinct
 activity count, time span, top-N most-frequent activities and
-transitions, mean / median case length. Pure CPython; runs in the
-same process as the rest of pm-bench so it works on `synthetic-toy`,
-any CSV path, and (eventually) any cached BPI log.
+transitions, mean / median / min / max case length. Pure CPython; runs
+in the same process as the rest of pm-bench so it works on
+`synthetic-toy`, any CSV path, and (eventually) any cached BPI log.
 """
 from __future__ import annotations
 
@@ -27,6 +27,8 @@ class LogStats:
     latest: datetime | None
     mean_case_length: float
     median_case_length: float
+    min_case_length: int
+    max_case_length: int
     top_activities: list[tuple[Activity, int]]
     top_transitions: list[tuple[tuple[Activity, Activity], int]]
 
@@ -66,6 +68,8 @@ def summarize(events: Iterable[Event], *, top_n: int = 10) -> LogStats:
     n_cases = len(by_case)
     mean_len = statistics.fmean(case_lengths) if case_lengths else 0.0
     median_len = statistics.median(case_lengths) if case_lengths else 0.0
+    min_len = min(case_lengths) if case_lengths else 0
+    max_len = max(case_lengths) if case_lengths else 0
 
     return LogStats(
         n_events=n_events,
@@ -76,6 +80,8 @@ def summarize(events: Iterable[Event], *, top_n: int = 10) -> LogStats:
         latest=latest,
         mean_case_length=mean_len,
         median_case_length=median_len,
+        min_case_length=min_len,
+        max_case_length=max_len,
         top_activities=_top_n_sorted(activity_counts, top_n),
         top_transitions=_top_n_sorted(transition_counts, top_n),
     )
