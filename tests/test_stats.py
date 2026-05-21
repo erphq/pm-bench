@@ -75,6 +75,36 @@ def test_summarize_empty_log_min_max_zero() -> None:
     assert s.max_case_length == 0
 
 
+def test_summarize_span_days_and_time_bounds() -> None:
+    s = summarize(_events())
+    base = dt.datetime(2024, 1, 1)
+    assert s.earliest == base
+    assert s.latest == base + dt.timedelta(days=2)
+    assert abs(s.span_days - 2.0) < 1e-9
+
+
+def test_summarize_single_event_span_zero() -> None:
+    ts = dt.datetime(2024, 6, 1)
+    s = summarize([("c1", "task", ts)])
+    assert s.span_days == 0.0
+    assert s.earliest == ts
+    assert s.latest == ts
+    assert s.n_cases == 1
+    assert s.n_events == 1
+    assert s.min_case_length == 1
+    assert s.max_case_length == 1
+    assert s.mean_case_length == 1.0
+
+
+def test_summarize_tie_breaking_is_lexicographic() -> None:
+    # In _events(): "a" appears 2 times, "b" appears 2 times (tie).
+    # "c" appears 1 time, "x" appears 1 time (tie).
+    # Ties are broken by lexicographic key order.
+    s = summarize(_events(), top_n=10)
+    assert s.top_activities[:2] == [("a", 2), ("b", 2)]
+    assert s.top_activities[2:] == [("c", 1), ("x", 1)]
+
+
 def test_cli_stats_synthetic_toy() -> None:
     runner = CliRunner()
     r = runner.invoke(main, ["stats", "synthetic-toy", "--top-n", "3"])
