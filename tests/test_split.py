@@ -53,3 +53,48 @@ def test_split_validates_fracs() -> None:
         case_chrono_split([], train_frac=1.5, val_frac=0.1)
     with pytest.raises(ValueError):
         case_chrono_split([], train_frac=0.7, val_frac=-0.1)
+
+
+def test_split_val_frac_zero_gives_two_way_partition() -> None:
+    """val_frac=0 is valid: produces an empty val set (pure train/test split)."""
+    base = dt.datetime(2024, 1, 1)
+    events = [(str(i), "a", base + dt.timedelta(days=i)) for i in range(10)]
+    s = case_chrono_split(events, train_frac=0.7, val_frac=0.0)
+    assert s.val == []
+    assert len(s.train) == 7
+    assert len(s.test) == 3
+
+
+def test_split_single_case_goes_entirely_to_test() -> None:
+    """n=1: integer fracs floor to 0 for train and val, so the sole
+    case always lands in test."""
+    ts = dt.datetime(2024, 1, 1)
+    s = case_chrono_split([("c1", "a", ts)])
+    assert s.train == []
+    assert s.val == []
+    assert s.test == ["c1"]
+
+
+def test_split_train_frac_zero_raises() -> None:
+    """train_frac=0 is excluded by the (0, 1) open-interval check."""
+    with pytest.raises(ValueError, match="train_frac"):
+        case_chrono_split([], train_frac=0.0, val_frac=0.1)
+
+
+def test_split_fracs_sum_to_one_raises() -> None:
+    """train_frac + val_frac == 1.0 leaves no room for a test set and must raise."""
+    with pytest.raises(ValueError):
+        case_chrono_split([], train_frac=0.8, val_frac=0.2)
+
+
+def test_split_two_cases_val_rounds_to_zero() -> None:
+    """n=2: int(2 * 0.1) = 0, so val is empty; train gets int(2 * 0.7) = 1 case."""
+    base = dt.datetime(2024, 1, 1)
+    events = [
+        ("c0", "a", base),
+        ("c1", "a", base + dt.timedelta(days=1)),
+    ]
+    s = case_chrono_split(events, train_frac=0.7, val_frac=0.1)
+    assert s.train == ["c0"]
+    assert s.val == []
+    assert s.test == ["c1"]
