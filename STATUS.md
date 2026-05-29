@@ -25,7 +25,7 @@ in `_events_and_test_cases` per dataset.
 registry-named datasets (auto-fetches via the cache + sha256
 machinery, parses by registry `format`).
 
-**240 tests** pass, ruff clean, all 5 leaderboard boards verify.
+**232 tests** pass, ruff clean, all 5 leaderboard boards verify.
 
 ```bash
 $ pm-bench leaderboard --all --verify

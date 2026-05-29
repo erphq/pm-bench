@@ -307,7 +307,7 @@ honesty. The point of the benchmark is to make the comparison real.
 
 ### Quality bar
 
-- **229 tests** covering correctness, drift detection, schema
+- **232 tests** covering correctness, drift detection, schema
   validation, error paths, and reproducibility across all 5 tasks.
 - **Atomic writes** with PID+UUID staging on every CSV/JSON writer
   (concurrent-safe).

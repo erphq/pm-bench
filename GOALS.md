@@ -43,7 +43,7 @@ months, ≥10 external papers report `pm-bench` numbers in their abstract.
 - **Round-trip safe**: BOM-tolerant reads, utf-8 writes, whitespace
   stripped on every column, empty / pipe-bearing activities rejected
   on write, NaN / Inf rejected on write AND score.
-- **229 tests** covering correctness, drift detection, schema
+- **232 tests** covering correctness, drift detection, schema
   validation, concurrency, and every error path.
 
 ## Leaderboard
