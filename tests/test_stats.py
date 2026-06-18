@@ -115,3 +115,49 @@ def test_cli_stats_synthetic_toy() -> None:
     assert len(data["top_activities"]) == 3
     assert "min_case_length" in data
     assert "max_case_length" in data
+
+
+def test_summarize_std_dev_empty_log() -> None:
+    s = summarize([])
+    assert s.std_dev_case_length == 0.0
+
+
+def test_summarize_std_dev_single_case() -> None:
+    ts = dt.datetime(2024, 6, 1)
+    s = summarize([("c1", "a", ts), ("c1", "b", ts + dt.timedelta(hours=1))])
+    # Only one case; population std dev of [2] is 0.
+    assert s.std_dev_case_length == 0.0
+
+
+def test_summarize_std_dev_uniform_cases() -> None:
+    # Three cases, each with exactly 2 events: std dev must be 0.
+    base = dt.datetime(2024, 1, 1)
+    events = [
+        ("c1", "a", base),
+        ("c1", "b", base + dt.timedelta(hours=1)),
+        ("c2", "a", base + dt.timedelta(days=1)),
+        ("c2", "b", base + dt.timedelta(days=1, hours=1)),
+        ("c3", "a", base + dt.timedelta(days=2)),
+        ("c3", "b", base + dt.timedelta(days=2, hours=1)),
+    ]
+    s = summarize(events)
+    assert s.std_dev_case_length == 0.0
+
+
+def test_summarize_std_dev_case_length_value() -> None:
+    import statistics
+
+    # _events() gives case lengths [3, 2, 1] (order stable inside cases).
+    s = summarize(_events())
+    expected = statistics.pstdev([3, 2, 1])
+    assert abs(s.std_dev_case_length - expected) < 1e-9
+
+
+def test_cli_stats_std_dev_present() -> None:
+    runner = CliRunner()
+    r = runner.invoke(main, ["stats", "synthetic-toy"])
+    assert r.exit_code == 0, r.output
+    data = json.loads(r.output)
+    assert "std_dev_case_length" in data
+    assert isinstance(data["std_dev_case_length"], float)
+    assert data["std_dev_case_length"] >= 0.0
