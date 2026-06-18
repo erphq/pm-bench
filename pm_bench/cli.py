@@ -392,6 +392,7 @@ def stats(name: str, top_n: int) -> None:
                 "latest": s.latest.isoformat() if s.latest else None,
                 "mean_case_length": s.mean_case_length,
                 "median_case_length": s.median_case_length,
+                "std_dev_case_length": s.std_dev_case_length,
                 "min_case_length": s.min_case_length,
                 "max_case_length": s.max_case_length,
                 "top_activities": [
