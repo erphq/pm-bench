@@ -30,6 +30,7 @@ class LogStats:
     std_dev_case_length: float
     min_case_length: int
     max_case_length: int
+    singleton_cases: int
     top_activities: list[tuple[Activity, int]]
     top_transitions: list[tuple[tuple[Activity, Activity], int]]
 
@@ -72,6 +73,7 @@ def summarize(events: Iterable[Event], *, top_n: int = 10) -> LogStats:
     std_dev_len = statistics.pstdev(case_lengths) if case_lengths else 0.0
     min_len = min(case_lengths) if case_lengths else 0
     max_len = max(case_lengths) if case_lengths else 0
+    singleton_cases = sum(1 for n in case_lengths if n == 1)
 
     return LogStats(
         n_events=n_events,
@@ -85,6 +87,7 @@ def summarize(events: Iterable[Event], *, top_n: int = 10) -> LogStats:
         std_dev_case_length=std_dev_len,
         min_case_length=min_len,
         max_case_length=max_len,
+        singleton_cases=singleton_cases,
         top_activities=_top_n_sorted(activity_counts, top_n),
         top_transitions=_top_n_sorted(transition_counts, top_n),
     )

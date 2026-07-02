@@ -395,6 +395,7 @@ def stats(name: str, top_n: int) -> None:
                 "std_dev_case_length": s.std_dev_case_length,
                 "min_case_length": s.min_case_length,
                 "max_case_length": s.max_case_length,
+                "singleton_cases": s.singleton_cases,
                 "top_activities": [
                     {"activity": a, "count": c} for a, c in s.top_activities
                 ],
