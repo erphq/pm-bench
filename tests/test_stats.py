@@ -161,3 +161,47 @@ def test_cli_stats_std_dev_present() -> None:
     assert "std_dev_case_length" in data
     assert isinstance(data["std_dev_case_length"], float)
     assert data["std_dev_case_length"] >= 0.0
+
+
+def test_summarize_singleton_cases_empty_log() -> None:
+    s = summarize([])
+    assert s.singleton_cases == 0
+
+
+def test_summarize_singleton_cases_none() -> None:
+    # _events(): c1=3, c2=2, c3=1 events -- one singleton
+    s = summarize(_events())
+    assert s.singleton_cases == 1
+
+
+def test_summarize_singleton_cases_all_singletons() -> None:
+    base = dt.datetime(2024, 1, 1)
+    events = [
+        ("c1", "a", base),
+        ("c2", "b", base + dt.timedelta(hours=1)),
+        ("c3", "c", base + dt.timedelta(hours=2)),
+    ]
+    s = summarize(events)
+    assert s.singleton_cases == 3
+
+
+def test_summarize_singleton_cases_no_singletons() -> None:
+    base = dt.datetime(2024, 1, 1)
+    events = [
+        ("c1", "a", base),
+        ("c1", "b", base + dt.timedelta(hours=1)),
+        ("c2", "a", base + dt.timedelta(days=1)),
+        ("c2", "b", base + dt.timedelta(days=1, hours=1)),
+    ]
+    s = summarize(events)
+    assert s.singleton_cases == 0
+
+
+def test_cli_stats_singleton_cases_present() -> None:
+    runner = CliRunner()
+    r = runner.invoke(main, ["stats", "synthetic-toy"])
+    assert r.exit_code == 0, r.output
+    data = json.loads(r.output)
+    assert "singleton_cases" in data
+    assert isinstance(data["singleton_cases"], int)
+    assert data["singleton_cases"] >= 0
