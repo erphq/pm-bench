@@ -2,7 +2,9 @@ import datetime as dt
 
 from pm_bench import (
     Prefix,
+    extract_outcome_targets,
     extract_prefixes,
+    extract_remaining_time_targets,
     read_prefixes_csv,
     write_prefixes_csv,
 )
@@ -85,3 +87,55 @@ def test_extract_prefixes_rejects_mixed_type_case_ids() -> None:
     events = [(1, "a", base), ("c2", "b", base)]
     with _pytest.raises(TypeError, match="same type"):
         list(extract_prefixes(events, [1, "c2"]))
+
+
+def test_extract_remaining_time_targets_skips_singleton() -> None:
+    # A case with exactly 1 event has no "next event" and must produce 0 targets.
+    base = dt.datetime(2024, 1, 1)
+    events = [
+        ("c1", "a", base),
+        ("c1", "b", base + dt.timedelta(hours=1)),
+        ("c2", "solo", base),
+    ]
+    out = list(extract_remaining_time_targets(events, ["c1", "c2"]))
+    assert len(out) == 1
+    assert out[0].case_id == "c1"
+
+
+def test_extract_remaining_time_targets_respects_chronology() -> None:
+    # Events are fed in reversed timestamp order; extraction must sort them first.
+    base = dt.datetime(2024, 1, 1)
+    shuffled = [
+        ("c1", "c", base + dt.timedelta(hours=2)),
+        ("c1", "a", base),
+        ("c1", "b", base + dt.timedelta(hours=1)),
+    ]
+    out = list(extract_remaining_time_targets(shuffled, ["c1"]))
+    assert len(out) == 2
+    assert out[0].prefix_idx == 1
+    assert out[1].prefix_idx == 2
+    # Remaining time must decrease as the prefix grows toward the end.
+    assert out[0].remaining_days > out[1].remaining_days
+
+
+def test_extract_outcome_targets_skips_singleton() -> None:
+    # A case with exactly 1 event cannot form a prefix-of-length-k pair; skip it.
+    base = dt.datetime(2024, 1, 1)
+    events = [
+        ("c1", "start", base),
+        ("c1", "done", base + dt.timedelta(hours=1)),
+        ("c2", "solo", base),
+    ]
+    out = list(extract_outcome_targets(events, ["c1", "c2"], lambda acts: acts[-1] == "done"))
+    assert len(out) == 1
+    assert out[0].case_id == "c1"
+    assert out[0].outcome == 1
+
+
+def test_extract_outcome_targets_rejects_mixed_type_case_ids() -> None:
+    import pytest as _pytest
+
+    base = dt.datetime(2024, 1, 1)
+    events = [(1, "a", base), ("c2", "b", base)]
+    with _pytest.raises(TypeError, match="same type"):
+        list(extract_outcome_targets(events, [1, "c2"], lambda _: True))
