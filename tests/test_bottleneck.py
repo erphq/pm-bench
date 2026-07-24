@@ -5,6 +5,7 @@ import datetime as dt
 import json
 from pathlib import Path
 
+import pytest
 from click.testing import CliRunner
 
 from pm_bench.baselines.mean_wait import fit_mean_wait, predict_mean_wait
@@ -63,6 +64,36 @@ def test_predictions_csv_round_trip(tmp_path) -> None:
         BottleneckPrediction("b", "c", 250.0),
     ]
     p = tmp_path / "p.csv"
+    write_bottleneck_predictions_csv(preds, str(p))
+    back = read_bottleneck_predictions_csv(str(p))
+    assert back == preds
+
+
+@pytest.mark.parametrize("bad", [float("nan"), float("inf"), float("-inf")])
+def test_predictions_csv_rejects_non_finite(tmp_path, bad: float) -> None:
+    preds = [BottleneckPrediction("a", "b", bad)]
+    with pytest.raises(ValueError, match="must be finite"):
+        write_bottleneck_predictions_csv(preds, str(tmp_path / "p.csv"))
+
+
+def test_targets_gz_round_trip(tmp_path) -> None:
+    targets = [
+        BottleneckTarget("a", "b", 150.0, 2),
+        BottleneckTarget("b", "c", 250.0, 2),
+    ]
+    p = tmp_path / "t.csv.gz"
+    n = write_bottleneck_targets_csv(targets, str(p))
+    assert n == 2
+    back = read_bottleneck_targets_csv(str(p))
+    assert back == targets
+
+
+def test_predictions_gz_round_trip(tmp_path) -> None:
+    preds = [
+        BottleneckPrediction("a", "b", 150.0),
+        BottleneckPrediction("b", "c", 250.0),
+    ]
+    p = tmp_path / "p.csv.gz"
     write_bottleneck_predictions_csv(preds, str(p))
     back = read_bottleneck_predictions_csv(str(p))
     assert back == preds
