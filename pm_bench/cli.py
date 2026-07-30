@@ -769,7 +769,7 @@ def _score_dispatch(
 
     if task == "remaining-time":
         truth_time = read_time_targets_csv(prefixes_path)
-        pred_time = read_time_predictions_csv(prefixes_path)
+        pred_time = read_time_predictions_csv(predictions_path)
         _check_unique_pred_keys(pred_time, lambda p: (p.case_id, p.prefix_idx))
         pred_t_lookup = {(p.case_id, p.prefix_idx): p.predicted_days for p in pred_time}
         missing = [
@@ -796,7 +796,7 @@ def _score_dispatch(
 
     if task == "outcome":
         truth_o = read_outcome_targets_csv(prefixes_path)
-        pred_o = read_outcome_predictions_csv(prefixes_path)
+        pred_o = read_outcome_predictions_csv(predictions_path)
         _check_unique_pred_keys(pred_o, lambda p: (p.case_id, p.prefix_idx))
         pred_o_lookup = {(p.case_id, p.prefix_idx): p.score for p in pred_o}
         missing = [
