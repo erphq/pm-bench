@@ -402,6 +402,11 @@ def stats(name: str, top_n: int) -> None:
                 "top_transitions": [
                     {"a": ab[0], "b": ab[1], "count": c} for ab, c in s.top_transitions
                 ],
+                "mean_case_duration_days": s.mean_case_duration_days,
+                "median_case_duration_days": s.median_case_duration_days,
+                "std_dev_case_duration_days": s.std_dev_case_duration_days,
+                "min_case_duration_days": s.min_case_duration_days,
+                "max_case_duration_days": s.max_case_duration_days,
             },
             indent=2,
         ),

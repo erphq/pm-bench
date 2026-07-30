@@ -2,7 +2,8 @@
 
 Useful when inspecting a new dataset - n_cases, n_events, distinct
 activity count, time span, top-N most-frequent activities and
-transitions, mean / median / min / max / std-dev case length. Pure
+transitions, mean / median / min / max / std-dev case length, and
+mean / median / min / max / std-dev per-case duration in days. Pure
 CPython; runs in the same process as the rest of pm-bench so it works
 on `synthetic-toy`, any CSV path, and (eventually) any cached BPI log.
 """
@@ -33,6 +34,11 @@ class LogStats:
     singleton_cases: int
     top_activities: list[tuple[Activity, int]]
     top_transitions: list[tuple[tuple[Activity, Activity], int]]
+    mean_case_duration_days: float
+    median_case_duration_days: float
+    std_dev_case_duration_days: float
+    min_case_duration_days: float
+    max_case_duration_days: float
 
 
 def summarize(events: Iterable[Event], *, top_n: int = 10) -> LogStats:
@@ -56,11 +62,18 @@ def summarize(events: Iterable[Event], *, top_n: int = 10) -> LogStats:
 
     transition_counts: Counter[tuple[Activity, Activity]] = Counter()
     case_lengths: list[int] = []
+    case_durations: list[float] = []
     for rows in by_case.values():
         rows.sort(key=lambda r: r[1])
         case_lengths.append(len(rows))
         for (a, _), (b, _) in zip(rows, rows[1:], strict=False):
             transition_counts[(a, b)] += 1
+        duration = (
+            (rows[-1][1] - rows[0][1]).total_seconds() / 86400.0
+            if len(rows) >= 2
+            else 0.0
+        )
+        case_durations.append(duration)
 
     span_days = 0.0
     if earliest is not None and latest is not None:
@@ -74,6 +87,11 @@ def summarize(events: Iterable[Event], *, top_n: int = 10) -> LogStats:
     min_len = min(case_lengths) if case_lengths else 0
     max_len = max(case_lengths) if case_lengths else 0
     singleton_cases = sum(1 for n in case_lengths if n == 1)
+    mean_dur = statistics.fmean(case_durations) if case_durations else 0.0
+    median_dur = statistics.median(case_durations) if case_durations else 0.0
+    std_dev_dur = statistics.pstdev(case_durations) if case_durations else 0.0
+    min_dur = min(case_durations) if case_durations else 0.0
+    max_dur = max(case_durations) if case_durations else 0.0
 
     return LogStats(
         n_events=n_events,
@@ -90,6 +108,11 @@ def summarize(events: Iterable[Event], *, top_n: int = 10) -> LogStats:
         singleton_cases=singleton_cases,
         top_activities=_top_n_sorted(activity_counts, top_n),
         top_transitions=_top_n_sorted(transition_counts, top_n),
+        mean_case_duration_days=mean_dur,
+        median_case_duration_days=median_dur,
+        std_dev_case_duration_days=std_dev_dur,
+        min_case_duration_days=min_dur,
+        max_case_duration_days=max_dur,
     )
 
 
