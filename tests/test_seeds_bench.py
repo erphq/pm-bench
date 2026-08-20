@@ -88,3 +88,31 @@ def test_main_single_task_markdown_row_count(capsys) -> None:
     out = capsys.readouterr().out
     pipe_rows = [line for line in out.splitlines() if line.startswith("|")]
     assert len(pipe_rows) == 3  # header, separator, one data row
+
+
+def test_variance_single_seed_std_is_zero() -> None:
+    """N=1 skips statistics.stdev (needs >=2 samples) and returns 0.0."""
+    out = variance("next-event", n_seeds=1)
+    metrics = out["metrics"]["top1"]
+    assert metrics["std"] == 0.0
+    assert metrics["mean"] == metrics["min"] == metrics["max"]
+
+
+def test_variance_is_deterministic_across_calls() -> None:
+    """Same task, same n_seeds must give identical numbers on repeat runs.
+
+    The determinism quality bar in GOALS.md applies to the variance harness
+    too: reference numbers stable across runs.
+    """
+    a = variance("next-event", n_seeds=2)
+    b = variance("next-event", n_seeds=2)
+    assert a == b
+
+
+def test_render_markdown_empty_list_is_header_only() -> None:
+    """No results still yields a valid, header-only markdown table."""
+    md = render_markdown([])
+    lines = md.splitlines()
+    assert len(lines) == 2
+    assert lines[0].startswith("| Task |")
+    assert lines[1].startswith("|---|")
