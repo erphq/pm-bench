@@ -4,6 +4,7 @@ import pytest
 
 from pm_bench import (
     score_bottleneck,
+    score_conformance,
     score_next_event,
     score_outcome,
     score_remaining_time,
@@ -196,3 +197,55 @@ def test_outcome_known_value() -> None:
     truth = [0, 0, 1, 0, 1, 1]
     s = score_outcome(preds, truth)
     assert abs(s.auc - 8 / 9) < 1e-9
+
+
+# ---- score_conformance unit tests ----------------------------------------
+
+
+def test_conformance_both_empty_is_zero() -> None:
+    s = score_conformance(set(), set())
+    assert s.fitness == 0.0
+    assert s.precision == 0.0
+    assert s.fscore == 0.0
+    assert s.n_test_transitions == 0
+    assert s.n_model_transitions == 0
+
+
+def test_conformance_empty_model_scores_zero() -> None:
+    test = {("a", "b"), ("b", "c")}
+    s = score_conformance(set(), test)
+    assert s.fitness == 0.0
+    assert s.precision == 0.0
+    assert s.fscore == 0.0
+    assert s.n_test_transitions == 2
+    assert s.n_model_transitions == 0
+
+
+def test_conformance_empty_test_scores_zero() -> None:
+    model = {("a", "b"), ("b", "c")}
+    s = score_conformance(model, set())
+    assert s.fitness == 0.0
+    assert s.precision == 0.0
+    assert s.fscore == 0.0
+    assert s.n_test_transitions == 0
+    assert s.n_model_transitions == 2
+
+
+def test_conformance_n_transitions_fields_match_input_sizes() -> None:
+    model = {("a", "b"), ("b", "c"), ("c", "d")}
+    test = {("a", "b"), ("b", "c")}
+    s = score_conformance(model, test)
+    assert s.n_model_transitions == 3
+    assert s.n_test_transitions == 2
+
+
+def test_conformance_partial_overlap_fscore_value() -> None:
+    # model has 3 transitions, test has 2, overlap is 1.
+    # fitness = 1/2, precision = 1/3.
+    # fscore = 2 * (1/2) * (1/3) / (1/2 + 1/3) = (1/3) / (5/6) = 2/5.
+    model = {("a", "b"), ("b", "c"), ("x", "y")}
+    test = {("a", "b"), ("p", "q")}
+    s = score_conformance(model, test)
+    assert abs(s.fitness - 0.5) < 1e-9
+    assert abs(s.precision - 1 / 3) < 1e-9
+    assert abs(s.fscore - 2 / 5) < 1e-9
